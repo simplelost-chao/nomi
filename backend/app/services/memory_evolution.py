@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Memory, Robot
+from app.services.memory_iteration import update_utility
 
 DEFAULT_USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 
@@ -73,6 +74,35 @@ async def activate_memories(session: AsyncSession, memory_ids: list[uuid.UUID]) 
             current = linked.importance_score or 0.0
             linked.importance_score = min(1.0, current + 0.05)
 
+    await session.commit()
+
+
+async def record_retrieval(session: AsyncSession, memory_ids: list[uuid.UUID]) -> None:
+    """+1 retrieved_count for each memory that was pulled into a prompt."""
+    if not memory_ids:
+        return
+    result = await session.execute(select(Memory).where(Memory.id.in_(memory_ids)))
+    for m in result.scalars().all():
+        m.retrieved_count = (m.retrieved_count or 0) + 1
+    await session.commit()
+
+
+async def record_usefulness(
+    session: AsyncSession,
+    retrieved_ids: list[uuid.UUID],
+    used_ids: list[uuid.UUID],
+    alpha: float = 0.3,
+) -> None:
+    """Update utility EMA for retrieved memories based on whether the LLM used them."""
+    if not retrieved_ids:
+        return
+    used = set(used_ids or [])
+    result = await session.execute(select(Memory).where(Memory.id.in_(retrieved_ids)))
+    for m in result.scalars().all():
+        was_used = m.id in used
+        if was_used:
+            m.useful_count = (m.useful_count or 0) + 1
+        m.utility_score = update_utility(m.utility_score or 0.0, was_used, alpha)
     await session.commit()
 
 
