@@ -511,6 +511,10 @@ async def wake_up():
     decay_task = asyncio.create_task(_memory_decay_loop())
     _heartbeat_tasks["__memory_decay__"] = decay_task
 
+    # Start periodic sleep-cycle task (dedup + safe forget)
+    sleep_task = asyncio.create_task(_sleep_cycle_loop())
+    _heartbeat_tasks["__sleep_cycle__"] = sleep_task
+
 
 async def _heartbeat_coordinator():
     """Single coordinator loop — picks one robot per tick."""
@@ -985,6 +989,35 @@ async def _memory_decay_loop():
             break
         except Exception as e:
             print(f"[heartbeat] Memory decay error: {e}")
+
+
+SLEEP_CYCLE_INTERVAL = 6 * 3600  # 6 hours in seconds
+
+
+async def _sleep_cycle_loop():
+    """Background task: run memory dedup + safe forget every 6 hours."""
+    from app.services.sleep_cycle import run_sleep_cycle
+    while _alive:
+        try:
+            await asyncio.sleep(SLEEP_CYCLE_INTERVAL)
+            if not _alive:
+                break
+            async with async_session() as session:
+                result = await session.execute(
+                    select(Robot).where(Robot.user_id == DEFAULT_USER_ID)
+                )
+                robots = list(result.scalars().all())
+            for robot in robots:
+                try:
+                    async with async_session() as session:
+                        stats = await run_sleep_cycle(session, None, robot)
+                    print(f"[heartbeat] Sleep cycle for {robot.name}: {stats}")
+                except Exception as e:
+                    print(f"[heartbeat] Sleep cycle error for {robot.name}: {e}")
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            print(f"[heartbeat] Sleep cycle loop error: {e}")
 
 
 async def _handle_conversation(llm, initiator: Robot, target: Robot, initial_message: str, all_robots: list):
