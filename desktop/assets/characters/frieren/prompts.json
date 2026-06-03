@@ -1,0 +1,35 @@
+{
+  "character": "Frieren",
+  "style": "Chibi Q-version anime",
+  "base_prompt": "Chibi anime character of an elf girl with long silver-white hair, green eyes, wearing a white and purple mage robe. Cute Q-version style.",
+  "states": {
+    "idle": {
+      "prompt": "Chibi anime character of an elf girl with long silver-white hair, green eyes, wearing a white and purple mage robe. Cute Q-version style. Gentle peaceful smile, standing pose. Simple clean background, soft pastel colors, high quality anime illustration.",
+      "file": "idle.png"
+    },
+    "thinking": {
+      "prompt": "Chibi anime character of an elf girl with long silver-white hair, green eyes, wearing a white and purple mage robe. Cute Q-version style. She is tilting her head to the side with one finger on her chin, thinking deeply with eyes looking upward. Simple clean background, soft pastel colors, high quality anime illustration.",
+      "file": "thinking.png"
+    },
+    "speaking": {
+      "prompt": "Chibi anime character of an elf girl with long silver-white hair, green eyes, wearing a white and purple mage robe. Cute Q-version style. She is talking with her mouth open, one hand slightly raised as if explaining something. Cheerful expression. Simple clean background, soft pastel colors, high quality anime illustration.",
+      "file": "speaking.png"
+    },
+    "listening": {
+      "prompt": "Chibi anime character of an elf girl with long silver-white hair, green eyes, wearing a white and purple mage robe. Cute Q-version style. She is leaning forward slightly with wide attentive eyes, listening carefully. Curious expression. Simple clean background, soft pastel colors, high quality anime illustration.",
+      "file": "listening.png"
+    },
+    "happy": {
+      "prompt": "Chibi anime character of an elf girl with long silver-white hair, green eyes, wearing a white and purple mage robe. Cute Q-version style. She is very happy, big bright smile, eyes closed in joy, both hands clasped together. Simple clean background, soft pastel colors, high quality anime illustration.",
+      "file": "happy.png"
+    },
+    "sad": {
+      "prompt": "Chibi anime character of an elf girl with long silver-white hair, green eyes, wearing a white and purple mage robe. Cute Q-version style. She looks sad and melancholic, eyes downcast, slight frown, hands held together in front. Simple clean background, soft pastel colors, high quality anime illustration.",
+      "file": "sad.png"
+    },
+    "surprised": {
+      "prompt": "Chibi anime character of an elf girl with long silver-white hair, green eyes, wearing a white and purple mage robe. Cute Q-version style. She is surprised with wide open eyes, small open mouth, slightly leaning back. Simple clean background, soft pastel colors, high quality anime illustration.",
+      "file": "surprised.png"
+    }
+  }
+}

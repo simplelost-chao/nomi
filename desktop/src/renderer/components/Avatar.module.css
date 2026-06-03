@@ -1,0 +1,119 @@
+.avatar {
+  position: relative;
+  width: 400px;
+  height: 400px;
+}
+
+.avatarImage {
+  -webkit-app-region: drag;
+  cursor: grab;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: opacity 0.15s ease, transform 0.3s ease;
+}
+
+.fading {
+  opacity: 0.6;
+}
+
+/* Idle: gentle breathing */
+.idle .avatarImage {
+  animation: idleMove 4s ease-in-out infinite;
+}
+
+@keyframes idleMove {
+  0%, 100% { transform: scale(1) translateY(0); }
+  50% { transform: scale(1.03) translateY(-4px); }
+}
+
+/* Thinking: slow gentle sway */
+.thinking .avatarImage {
+  animation: think 2.5s ease-in-out infinite;
+}
+
+@keyframes think {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(2deg) scale(1.01); }
+}
+
+/* Speaking: subtle bounce */
+.speaking .avatarImage {
+  animation: speak 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes speak {
+  0% { transform: scale(1) translateY(0); }
+  100% { transform: scale(1.02) translateY(-2px); }
+}
+
+/* Listening: slight lean in */
+.listening .avatarImage {
+  animation: listen 2s ease-in-out infinite;
+}
+
+@keyframes listen {
+  0%, 100% { transform: scale(1) translateY(0); }
+  50% { transform: scale(1.04) translateY(-2px); }
+}
+
+/* Happy: bouncy */
+.happy .avatarImage {
+  animation: happy 0.8s ease-in-out infinite;
+}
+
+@keyframes happy {
+  0%, 100% { transform: scale(1) translateY(0); }
+  50% { transform: scale(1.05) translateY(-6px); }
+}
+
+/* Sad: sink down */
+.sad .avatarImage {
+  animation: sad 3s ease-in-out infinite;
+}
+
+@keyframes sad {
+  0%, 100% { transform: scale(0.98) translateY(2px); }
+  50% { transform: scale(0.97) translateY(4px); }
+}
+
+/* Surprised: quick pop */
+.surprised .avatarImage {
+  animation: surprised 0.4s ease-out 1;
+}
+
+@keyframes surprised {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1.03); }
+}
+
+/* Status indicator dot */
+.statusDot {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+}
+
+.ready {
+  background: #4ade80;
+}
+
+.dotThinking {
+  background: #facc15;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.dotSpeaking {
+  background: #60a5fa;
+  animation: pulse 0.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}

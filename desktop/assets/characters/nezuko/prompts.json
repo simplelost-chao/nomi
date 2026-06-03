@@ -1,0 +1,26 @@
+{
+  "base_prompt": "Full body anime illustration of Nezuko Kamado, a beautiful young woman with long dark brown hair with orange-red gradient tips reaching past her waist, striking pink-red eyes, wearing a pink hemp leaf pattern (asanoha) kimono that shows her figure, dark brown haori jacket draped over shoulders, green bamboo muzzle in her mouth, pink hair ribbon, red-white checkered obi belt with gold tassel, brown leg wrappings and wooden sandals. Mature elegant detailed anime art, normal human proportions. Transparent background, PNG with alpha channel, no background whatsoever.",
+  "states": {
+    "idle": {
+      "prompt": "Standing pose with hands clasped in front, calm composed expression. Full body visible head to toe, consistent proportions. Transparent background, no background."
+    },
+    "thinking": {
+      "prompt": "Tilting head slightly, one finger near chin, eyes looking upward in thought. Bamboo muzzle in mouth. Full body visible head to toe, consistent proportions. Transparent background, no background."
+    },
+    "speaking": {
+      "prompt": "Bamboo muzzle removed, mouth slightly open speaking softly, one hand reaching forward. Warm expression. Full body visible head to toe, consistent proportions. Transparent background, no background."
+    },
+    "listening": {
+      "prompt": "Leaning forward slightly with wide attentive pink eyes, hands behind back. Bamboo muzzle in mouth. Full body visible head to toe, consistent proportions. Transparent background, no background."
+    },
+    "happy": {
+      "prompt": "Eyes closed in a warm smile, hands clasped together near chest joyfully. Bamboo muzzle in mouth. Full body visible head to toe, consistent proportions. Transparent background, no background."
+    },
+    "sad": {
+      "prompt": "Looking down with sad pink eyes, slightly teary, hands held together tightly. Bamboo muzzle in mouth. Full body visible head to toe, consistent proportions. Transparent background, no background."
+    },
+    "surprised": {
+      "prompt": "Wide open pink eyes in surprise, leaning back slightly, one hand near face. Bamboo muzzle in mouth. Full body visible head to toe, consistent proportions. Transparent background, no background."
+    }
+  }
+}

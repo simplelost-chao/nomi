@@ -1,0 +1,8 @@
+name: Nomi
+description: AI 陪伴机器人，有独立经历、记忆、性格，能不断成长
+domain: nomi.zhuchao.life
+
+service:
+  port: 3100
+
+# tunnel/部署配置统一由 Mira 管理，见 ~/.cloudflared/services.yml

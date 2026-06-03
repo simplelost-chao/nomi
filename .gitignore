@@ -1,0 +1,61 @@
+# ───────── Secrets ─────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+tts_config.json
+
+# ───────── Python ─────────
+.venv/
+.venv-*/
+**/.venv/
+**/.venv-*/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.sqlite
+*.db
+
+# ───────── Node / Frontend ─────────
+node_modules/
+.next/
+out/
+npm-debug.log*
+yarn-error.log*
+
+# ───────── Electron 桌面构建产物 ─────────
+desktop/dist/
+desktop/release/
+desktop/.cache/
+desktop/GenieData/
+# 保留打包所需图标资源：desktop/build/icon.icns、icon.png
+
+# ───────── 第三方 / 大体积资源（不进公开仓库）─────────
+# GPT-SoVITS 是 vendored 第三方项目（~8GB），请按其上游单独获取
+GPT-SoVITS/
+backend/CharacterModels/
+desktop/CharacterModels/
+**/originals_with_bgm/
+
+# ───────── 缓存 / 临时 / 工具 ─────────
+.cache/
+.superpowers/
+.playwright-mcp/
+*.log
+*.bundle
+
+# ───────── macOS ─────────
+.DS_Store
+.AppleDouble
+Icon?
+
+# ───────── 备份 ─────────
+*-backup/
+*.orig
+
+# ───────── Live2D 模型（受版权保护的第三方资产，体积大）─────────
+desktop/src/renderer/public/live2d/

@@ -1,0 +1,32 @@
+appId: com.nomi.desktop
+productName: Nomi
+directories:
+  output: release
+mac:
+  target:
+    - target: dmg
+      arch: arm64
+  category: public.app-category.social-networking
+  icon: build/icon.icns
+  darkModeSupport: true
+  extendInfo:
+    NSMicrophoneUsageDescription: "Nomi needs microphone access for voice conversations"
+files:
+  - dist/**/*
+  - assets/**/*
+extraResources:
+  - from: ../backend/desktop/dist/nomi-server
+    to: backend/nomi-server
+  # Screen-capture helper + OCR script on real filesystem (not asar)
+  - from: tools/NomiScreenshot.app
+    to: tools/NomiScreenshot.app
+  - from: tools/ocr.swift
+    to: tools/ocr.swift
+dmg:
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications

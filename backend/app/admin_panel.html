@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Nomi 角色管理后台</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:-apple-system,BlinkMacSystemFont,sans-serif; background:#0f0f1a; color:#e0e0e0; }
+
+  .header { background:#1a1a2e; padding:20px 32px; border-bottom:1px solid #2a2a4a; display:flex; align-items:center; gap:16px; }
+  .header h1 { font-size:20px; color:#fff; }
+  .header .badge { background:#6366f1; color:#fff; font-size:11px; padding:2px 8px; border-radius:10px; }
+  .header .spacer { flex:1; }
+
+  .container { max-width:1400px; margin:0 auto; padding:24px; }
+
+  /* Buttons */
+  .btn { padding:8px 16px; border:none; border-radius:8px; cursor:pointer; font-size:13px; transition:all 0.2s; }
+  .btn-primary { background:#6366f1; color:#fff; }
+  .btn-primary:hover { background:#5558e6; }
+  .btn-secondary { background:#2a2a4a; color:#ccc; }
+  .btn-secondary:hover { background:#3a3a5a; }
+  .btn-danger { background:#ef4444; color:#fff; }
+  .btn-sm { padding:5px 10px; font-size:12px; }
+  .btn:disabled { opacity:0.4; cursor:not-allowed; }
+  .btn-group { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+
+  /* Forms */
+  .form-group { margin-bottom:16px; }
+  .form-group label { display:block; font-size:13px; color:#888; margin-bottom:4px; }
+  .form-group input, .form-group textarea, .form-group select { width:100%; padding:10px 12px; background:#0f0f1a; border:1px solid #2a2a4a; border-radius:8px; color:#e0e0e0; font-size:13px; font-family:inherit; }
+  .form-group textarea { min-height:100px; resize:vertical; }
+  .form-group input:focus, .form-group textarea:focus { outline:none; border-color:#6366f1; }
+
+  /* Status */
+  .loading { color:#6366f1; }
+  .success { color:#22c55e; }
+  .error { color:#ef4444; }
+
+  .log { background:#0a0a14; border:1px solid #2a2a4a; border-radius:8px; padding:12px; font-family:monospace; font-size:12px; color:#6366f1; max-height:200px; overflow-y:auto; margin:8px 0; white-space:pre-wrap; }
+
+  .prompt-box { background:#0a0a14; border:1px solid #2a2a4a; border-radius:8px; padding:12px; font-family:"SF Mono",Monaco,monospace; font-size:12px; color:#a0a0c0; line-height:1.6; white-space:pre-wrap; word-break:break-word; max-height:200px; overflow-y:auto; margin:8px 0; }
+
+  /* ==================== LIST PAGE ==================== */
+  #listPage { display:block; }
+  #detailPage { display:none; }
+
+  .list-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; }
+  .list-header h2 { font-size:18px; color:#fff; }
+
+  .char-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:20px; }
+  .char-card { background:#1a1a2e; border:1px solid #2a2a4a; border-radius:12px; overflow:hidden; cursor:pointer; transition:all 0.2s; }
+  .char-card:hover { border-color:#6366f1; transform:translateY(-2px); box-shadow:0 4px 20px rgba(99,102,241,0.15); }
+  .char-card-inner { display:flex; align-items:center; gap:16px; padding:20px; }
+  .char-card-avatar { width:72px; height:72px; border-radius:12px; object-fit:cover; background:#2a2a4a; flex-shrink:0; }
+  .char-card-info h3 { font-size:16px; margin-bottom:6px; }
+  .char-card-meta { font-size:12px; color:#888; line-height:1.6; }
+  .char-card-meta .tag { display:inline-block; padding:1px 6px; border-radius:4px; font-size:11px; margin-right:4px; }
+  .tag-voice { background:#22c55e22; color:#22c55e; }
+  .tag-novoice { background:#ef444422; color:#ef4444; }
+  .tag-count { background:#6366f122; color:#6366f1; }
+
+  /* ==================== DETAIL PAGE ==================== */
+  .detail-panel { display:none; }
+  .detail-panel.active { display:block; }
+
+  .detail-header { display:flex; align-items:center; gap:16px; margin-bottom:24px; }
+  .detail-header .back-btn { background:none; border:none; color:#6366f1; font-size:14px; cursor:pointer; padding:6px 12px; border-radius:6px; transition:background 0.2s; }
+  .detail-header .back-btn:hover { background:#6366f122; }
+  .detail-header h2 { font-size:20px; color:#fff; }
+
+  .detail-tabs { display:flex; gap:4px; margin-bottom:24px; border-bottom:1px solid #2a2a4a; padding-bottom:0; }
+  .detail-tab { padding:10px 20px; background:transparent; border:none; border-bottom:2px solid transparent; cursor:pointer; font-size:14px; color:#888; transition:all 0.2s; }
+  .detail-tab.active { color:#6366f1; border-bottom-color:#6366f1; }
+  .detail-tab:hover:not(.active) { color:#ccc; }
+
+  .tab-content { display:none; }
+  .tab-content.active { display:block; }
+
+  /* Info grid */
+  .info-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(400px,1fr)); gap:20px; }
+  .info-block { background:#1a1a2e; border:1px solid #2a2a4a; border-radius:12px; padding:20px; }
+  .info-block .info-label { font-size:12px; color:#6366f1; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px; font-weight:600; }
+  .info-block .info-value { font-size:13px; color:#c0c0d0; line-height:1.7; white-space:pre-wrap; word-break:break-word; max-height:300px; overflow-y:auto; }
+
+  /* Image state cards */
+  .img-states-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:16px; margin-bottom:24px; }
+  .img-state-card { background:#1a1a2e; border:1px solid #2a2a4a; border-radius:12px; overflow:hidden; text-align:center; }
+  .img-state-card .thumb-wrap { width:100%; aspect-ratio:1; background:#0f0f1a; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .img-state-card .thumb-wrap img { width:100%; height:100%; object-fit:contain; }
+  .img-state-card .thumb-wrap.empty { color:#444; font-size:32px; }
+  .img-state-card .card-footer { padding:10px 12px; border-top:1px solid #2a2a4a; }
+  .img-state-card .state-label { font-size:13px; font-weight:500; margin-bottom:4px; }
+  .img-state-card .version-link { font-size:11px; color:#6366f1; cursor:pointer; text-decoration:none; }
+  .img-state-card .version-link:hover { text-decoration:underline; }
+
+  /* Generate panel */
+  .generate-panel { background:#1a1a2e; border:1px solid #2a2a4a; border-radius:12px; padding:24px; margin-bottom:24px; display:none; }
+  .generate-panel.open { display:block; }
+
+  /* Voice section */
+  .voice-section { background:#1a1a2e; border:1px solid #2a2a4a; border-radius:12px; padding:20px; }
+  .voice-section audio { width:100%; margin-top:12px; }
+  .voice-config { background:#0a0a14; border:1px solid #2a2a4a; border-radius:8px; padding:12px; font-family:monospace; font-size:12px; color:#a0a0c0; white-space:pre-wrap; max-height:300px; overflow-y:auto; }
+
+  /* Memory timeline */
+  .memory-timeline { position:relative; padding-left:24px; }
+  .memory-timeline::before { content:''; position:absolute; left:8px; top:0; bottom:0; width:2px; background:#2a2a4a; }
+
+  .memory-group { margin-bottom:24px; }
+  .memory-group-label { font-size:14px; font-weight:600; color:#6366f1; margin-bottom:12px; padding:4px 12px; background:#6366f122; border-radius:6px; display:inline-block; position:relative; }
+  .memory-group-label::before { content:''; position:absolute; left:-20px; top:50%; transform:translateY(-50%); width:10px; height:10px; background:#6366f1; border-radius:50%; }
+
+  .memory-item { background:#1a1a2e; border:1px solid #2a2a4a; border-radius:10px; padding:14px 16px; margin-bottom:10px; cursor:pointer; transition:all 0.2s; position:relative; }
+  .memory-item:hover { border-color:#3a3a5a; }
+  .memory-item .mem-header { display:flex; align-items:center; gap:8px; }
+  .memory-item .mem-title { font-size:13px; font-weight:500; flex:1; }
+  .memory-item .mem-badge { display:inline-block; padding:2px 8px; border-radius:4px; font-size:10px; font-weight:600; }
+  .mem-badge.vivid { background:#6366f133; color:#6366f1; }
+  .mem-badge.fragment { background:#f59e0b33; color:#f59e0b; }
+  .mem-badge.feeling { background:#22c55e33; color:#22c55e; }
+  .importance-bar { height:3px; border-radius:2px; background:#2a2a4a; margin-top:8px; overflow:hidden; }
+  .importance-bar .fill { height:100%; background:#6366f1; border-radius:2px; }
+  .memory-item .mem-content { display:none; margin-top:12px; font-size:12px; color:#a0a0c0; line-height:1.7; white-space:pre-wrap; border-top:1px solid #2a2a4a; padding-top:10px; }
+  .memory-item.expanded .mem-content { display:block; }
+
+  /* Modal */
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); display:none; align-items:center; justify-content:center; z-index:100; }
+  .modal-overlay.show { display:flex; }
+  .modal { background:#1a1a2e; border:1px solid #2a2a4a; border-radius:16px; width:90%; max-width:800px; max-height:90vh; overflow-y:auto; }
+  .modal-header { padding:20px 24px; border-bottom:1px solid #2a2a4a; display:flex; justify-content:space-between; align-items:center; }
+  .modal-header h2 { font-size:18px; }
+  .modal-close { background:none; border:none; color:#888; font-size:20px; cursor:pointer; }
+  .modal-body { padding:24px; }
+
+  /* Version items */
+  .version-item { display:flex; align-items:center; gap:16px; padding:12px; background:#0f0f1a; border:1px solid #2a2a4a; border-radius:10px; margin-bottom:10px; }
+  .version-item .ver-thumb { width:64px; height:64px; border-radius:8px; object-fit:contain; background:#1a1a2e; flex-shrink:0; }
+  .version-item .ver-meta { flex:1; }
+  .version-item .ver-meta .ver-num { font-size:14px; font-weight:600; }
+  .version-item .ver-meta .ver-date { font-size:11px; color:#888; }
+  .version-item .ver-meta .ver-prompt { font-size:11px; color:#666; margin-top:2px; max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .version-item .ver-badge { font-size:10px; padding:2px 8px; border-radius:4px; background:#22c55e33; color:#22c55e; }
+  .version-item .star-btn { background:none; border:none; font-size:18px; cursor:pointer; color:#f59e0b; padding:4px; }
+  .version-item .ver-activate { padding:5px 12px; }
+
+  /* Create modal tabs */
+  .create-tabs { display:flex; gap:4px; margin-bottom:20px; }
+  .create-tab { padding:8px 16px; background:#0f0f1a; border:1px solid #2a2a4a; border-radius:8px; cursor:pointer; font-size:13px; color:#888; transition:all 0.2s; }
+  .create-tab.active { background:#6366f1; color:#fff; border-color:#6366f1; }
+  .create-mode { display:none; }
+  .create-mode.active { display:block; }
+
+  /* TTS section */
+  .tts-test { margin-top:16px; padding:16px; background:#0f0f1a; border:1px solid #2a2a4a; border-radius:8px; }
+  .tts-test input { flex:1; }
+  .tts-row { display:flex; gap:8px; align-items:center; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Nomi 角色管理后台</h1>
+  <div style="display:flex; align-items:center; gap:12px;">
+    <div id="ttsEngineIndicator" style="font-size:12px; color:#888; cursor:pointer;" onclick="showTTSSettings()">TTS: ...</div>
+    <span class="badge">Admin Panel</span>
+  </div>
+</div>
+
+<!-- TTS Settings Modal -->
+<div id="ttsSettingsModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center;">
+  <div style="background:#1a1a2e; border:1px solid #2a2a4a; border-radius:12px; padding:24px; width:400px; max-width:90vw;">
+    <h3 style="margin-bottom:16px; font-size:16px; color:#ccc;">TTS 引擎设置</h3>
+    <div style="margin-bottom:16px;">
+      <label style="font-size:13px; color:#888; display:block; margin-bottom:8px;">语音合成引擎</label>
+      <select id="ttsEngineSelect" style="width:100%; padding:8px; background:#0f0f1a; border:1px solid #2a2a4a; border-radius:6px; color:#e0e0e0; font-size:13px;">
+        <option value="qwen3">Qwen3-TTS (MLX, Apple Silicon)</option>
+        <option value="cosyvoice">CosyVoice2</option>
+      </select>
+    </div>
+    <div id="qwen3ModelRow" style="margin-bottom:16px;">
+      <label style="font-size:13px; color:#888; display:block; margin-bottom:8px;">Qwen3 模型</label>
+      <select id="qwen3ModelSelect" style="width:100%; padding:8px; background:#0f0f1a; border:1px solid #2a2a4a; border-radius:6px; color:#e0e0e0; font-size:13px;">
+        <option value="1.7b-8bit">1.7B (8bit) — 平衡</option>
+        <option value="1.7b-bf16">1.7B (bf16) — 最高质量</option>
+        <option value="0.6b-bf16">0.6B (bf16) — 最快</option>
+      </select>
+    </div>
+    <div style="display:flex; gap:8px; justify-content:flex-end;">
+      <button class="btn" onclick="closeTTSSettings()" style="padding:8px 16px;">取消</button>
+      <button class="btn btn-primary" onclick="saveTTSSettings()" style="padding:8px 16px;">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <!-- ==================== LIST PAGE ==================== -->
+  <div id="listPage">
+    <div class="list-header">
+      <h2>角色列表</h2>
+      <button class="btn btn-primary" onclick="showCreateModal()">+ 创建角色</button>
+    </div>
+    <div class="char-grid" id="charGrid"></div>
+  </div>
+
+  <!-- ==================== DETAIL PAGE ==================== -->
+  <div id="detailPage">
+    <div class="detail-header">
+      <button class="back-btn" onclick="showList()">← 返回列表</button>
+      <h2 id="detailTitle"></h2>
+    </div>
+
+    <div class="detail-tabs">
+      <button class="detail-tab active" onclick="switchDetailTab('info')">基本信息</button>
+      <button class="detail-tab" onclick="switchDetailTab('images')">形象</button>
+      <button class="detail-tab" onclick="switchDetailTab('voice')">语音</button>
+      <button class="detail-tab" onclick="switchDetailTab('memories')">记忆</button>
+    </div>
+
+    <!-- Info Tab -->
+    <div id="tab-info" class="tab-content active"></div>
+
+    <!-- Images Tab -->
+    <div id="tab-images" class="tab-content"></div>
+
+    <!-- Voice Tab -->
+    <div id="tab-voice" class="tab-content"></div>
+
+    <!-- Memories Tab -->
+    <div id="tab-memories" class="tab-content"></div>
+  </div>
+</div>
+
+<!-- Version History Modal -->
+<div class="modal-overlay" id="versionModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="versionModalTitle">版本历史</h2>
+      <button class="modal-close" onclick="closeVersionModal()">✕</button>
+    </div>
+    <div class="modal-body" id="versionModalBody"></div>
+  </div>
+</div>
+
+<!-- Create Character Modal -->
+<div class="modal-overlay" id="createModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>创建角色</h2>
+      <button class="modal-close" onclick="closeCreateModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="create-tabs">
+        <div class="create-tab active" onclick="switchCreateMode('manual')">手动创建</div>
+        <div class="create-tab" onclick="switchCreateMode('web')">从网络构建</div>
+      </div>
+
+      <!-- Manual Create -->
+      <div id="createManual" class="create-mode active">
+        <div class="form-group">
+          <label>角色名称</label>
+          <input id="newName" placeholder="例：冯宝宝">
+        </div>
+        <div class="form-group">
+          <label>目录名（英文，用于文件存储）</label>
+          <input id="newDirName" placeholder="例：fengbaobao">
+        </div>
+        <div class="form-group">
+          <label>背景故事</label>
+          <textarea id="newStory" placeholder="角色的来历和背景..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>性格特征（JSON）</label>
+          <input id="newPersonality" placeholder='{"traits": ["天真", "野性"]}'>
+        </div>
+        <div class="form-group">
+          <label>系统提示词（System Prompt）</label>
+          <textarea id="newPrompt" style="min-height:200px;" placeholder="你是XXX，来自《XXX》..."></textarea>
+        </div>
+        <button class="btn btn-primary" onclick="createCharacter()">创建角色</button>
+        <div id="createResult" style="margin-top:12px;"></div>
+      </div>
+
+      <!-- Web Create -->
+      <div id="createWeb" class="create-mode">
+        <div class="form-group">
+          <label>角色名称</label>
+          <input id="webCharName" placeholder="例：冯宝宝">
+        </div>
+        <div class="form-group">
+          <label>来源（作品名/Wiki URL）</label>
+          <input id="webSource" placeholder="例：一人之下 或 https://...">
+        </div>
+        <button class="btn btn-primary" onclick="createFromWeb()">开始构建</button>
+        <div id="webLog" class="log" style="display:none; margin-top:12px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = window.location.origin + "/api/admin";
+const _apiOrigin = window.location.origin.replace('nomi.zhuchao.life', 'nomi-api.zhuchao.life').replace(':3100', ':8100');
+const TTS_URL = _apiOrigin + "/api/tts/speak-genie";
+const ROBOT_VOICE_MAP = {"フリーレン":"frieren","冯宝宝":"fengbaobao","禰豆子":"nezuko"};
+const STATES = ["idle","thinking","speaking","listening","happy","sad","surprised"];
+const STATE_LABELS = {idle:"待机",thinking:"思考",speaking:"说话",listening:"倾听",happy:"开心",sad:"难过",surprised:"惊讶"};
+
+let characters = [];
+let currentChar = null;
+
+async function fetchJSON(url, opts) {
+  const res = await fetch(url, opts);
+  return res.json();
+}
+
+// ==================== NAVIGATION ====================
+
+async function toggleDesktop(charId, visible) {
+  try {
+    await fetch('/api/robots/' + charId, {
+      method: 'PATCH',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({desktop_visible: visible})
+    });
+    // Update local data and re-render
+    const c = characters.find(x => x.id === charId);
+    if (c) c.desktop_visible = visible;
+    loadCharacters();
+  } catch(e) {
+    alert('更新失败: ' + e.message);
+  }
+}
+
+function showList() {
+  document.getElementById('listPage').style.display = 'block';
+  document.getElementById('detailPage').style.display = 'none';
+  currentChar = null;
+  history.pushState(null, '', '/admin');
+  loadCharacters();
+}
+
+function showDetail(charId) {
+  const c = characters.find(x => x.id === charId);
+  if (!c) return;
+  currentChar = c;
+
+  document.getElementById('listPage').style.display = 'none';
+  document.getElementById('detailPage').style.display = 'block';
+  document.getElementById('detailTitle').textContent = c.name;
+  history.pushState(null, '', '/admin?id=' + charId);
+
+  // Reset to first tab
+  switchDetailTab('info');
+
+  // Load all sections
+  loadDetailInfo(c);
+  loadDetailImages(c);
+  loadDetailVoice(c);
+  loadDetailMemories(c.id);
+}
+
+function switchDetailTab(tab) {
+  document.querySelectorAll('.detail-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(p => p.classList.remove('active'));
+
+  const tabs = document.querySelectorAll('.detail-tab');
+  const map = ['info','images','voice','memories'];
+  const idx = map.indexOf(tab);
+  if (idx >= 0) tabs[idx].classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+}
+
+// ==================== CHARACTER LIST ====================
+
+async function loadCharacters() {
+  try {
+    characters = await fetchJSON(API + '/characters');
+  } catch(e) {
+    document.getElementById('charGrid').innerHTML = '<p class="error">无法加载角色列表: ' + e.message + '</p>';
+    return;
+  }
+
+  const grid = document.getElementById('charGrid');
+  if (characters.length === 0) {
+    grid.innerHTML = '<p style="color:#888;">暂无角色，点击右上角创建</p>';
+    return;
+  }
+
+  grid.innerHTML = characters.map(c => {
+    const emotionCount = Object.values(c.states || {}).filter(Boolean).length;
+    const voiceTag = c.has_voice
+      ? '<span class="tag tag-voice">有语音</span>'
+      : '<span class="tag tag-novoice">无语音</span>';
+    const countTag = '<span class="tag tag-count">' + emotionCount + '/' + STATES.length + ' 表情</span>';
+    const memoryTag = c.memory_count ? '<span class="tag tag-count">' + c.memory_count + ' 条记忆</span>' : '';
+    const sourceTag = c.generation_stats?.source === 'web_search'
+      ? '<span class="tag tag-voice">网络构建</span>'
+      : c.portrait ? '<span class="tag tag-voice">照片创建</span>' : '';
+
+    // Avatar: use first character as fallback (no image loading)
+    const avatarUrl = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72"><rect fill="#2a2a4a" width="72" height="72" rx="12"/><text x="36" y="44" fill="#888" text-anchor="middle" font-size="28">' + c.name[0] + '</text></svg>');
+
+    const desktopTag = c.desktop_visible
+      ? '<span class="tag" style="background:#065f46;color:#6ee7b7;cursor:pointer" onclick="event.stopPropagation();toggleDesktop(\'' + c.id + '\',' + !c.desktop_visible + ')">桌面可见</span>'
+      : '<span class="tag" style="background:#333;color:#888;cursor:pointer" onclick="event.stopPropagation();toggleDesktop(\'' + c.id + '\',' + !c.desktop_visible + ')">桌面隐藏</span>';
+
+    return `
+      <div class="char-card" onclick="showDetail('${c.id}')">
+        <div class="char-card-inner">
+          <img class="char-card-avatar"
+               src="${avatarUrl}">
+          <div class="char-card-info">
+            <h3>${esc(c.name)}</h3>
+            <div class="char-card-meta">
+              ${desktopTag} ${sourceTag} ${voiceTag} ${countTag} ${memoryTag}
+            </div>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ==================== DETAIL: INFO ====================
+
+function loadDetailInfo(c) {
+  const sections = [
+    c.age != null ? { label:'年龄 AGE', value: c.age + ' 岁' + (c.birth_place ? ' · ' + c.birth_place : '') } : null,
+    c.core_desire ? { label:'核心愿望 / 恐惧', value: '愿望: ' + c.core_desire + '\n恐惧: ' + (c.core_fear || '(无)') } : null,
+    { label:'性格特征 PERSONALITY', value: formatJSON(c.personality) },
+    { label:'说话风格 SPEAKING STYLE', value: formatJSON(c.speaking_style) },
+    { label:'背景故事 ORIGIN STORY', value: c.origin_story || '(未设置)' },
+    { label:'系统提示词 SYSTEM PROMPT', value: c.system_prompt || '(未设置)' },
+    c.portrait?.life_sentence ? { label:'一生概括 PORTRAIT', value: c.portrait.life_sentence + '\n\n' + (c.portrait.current_self_description || '') } : null,
+  ].filter(Boolean);
+
+  document.getElementById('tab-info').innerHTML = `
+    <div class="info-grid">
+      ${sections.map(s => `
+        <div class="info-block">
+          <div class="info-label">${s.label}</div>
+          <div class="info-value">${esc(s.value)}</div>
+        </div>
+      `).join('')}
+    </div>`;
+}
+
+async function saveLive2dScale(charId, scale) {
+  const c = characters.find(x => x.id === charId);
+  if (!c) return;
+  const vp = Object.assign({}, c.voice_profile || {}, { live2d_scale: scale });
+  try {
+    await fetch('/api/robots/' + charId, {
+      method: 'PATCH',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({voice_profile: vp})
+    });
+    c.voice_profile = vp;
+  } catch(e) {
+    alert('保存失败: ' + e.message);
+  }
+}
+
+// ==================== DETAIL: IMAGES ====================
+
+function loadDetailImages(c) {
+  const stateCards = STATES.map(s => {
+    const hasImage = c.states && c.states[s];
+    const imgSrc = API + '/characters/' + c.id + '/image/' + s + '?t=' + Date.now();
+
+    return `
+      <div class="img-state-card">
+        <div class="thumb-wrap ${hasImage ? '' : 'empty'}">
+          ${hasImage
+            ? '<img src="' + imgSrc + '" onerror="this.parentElement.classList.add(\'empty\');this.remove();">'
+            : '?'}
+        </div>
+        <div class="card-footer">
+          <div class="state-label">${STATE_LABELS[s]}</div>
+          <a class="version-link" onclick="showVersionHistory('${c.id}','${s}')">版本历史</a>
+        </div>
+      </div>`;
+  }).join('');
+
+  const live2dScale = c.voice_profile?.live2d_scale ?? 1.15;
+  const idleImgSrc = API + '/characters/' + c.id + '/image/idle?t=' + Date.now();
+
+  document.getElementById('tab-images').innerHTML = `
+    <!-- Preview: 2D vs 3D side by side -->
+    <div style="display:flex;gap:20px;margin-bottom:24px;">
+      <div style="flex:1;background:#1a1a2e;border:1px solid #2a2a4a;border-radius:12px;padding:16px;text-align:center">
+        <div style="font-size:13px;color:#888;margin-bottom:12px">2D 预览</div>
+        <div style="width:200px;height:200px;margin:0 auto;display:flex;align-items:center;justify-content:center;overflow:hidden">
+          <img src="${idleImgSrc}" style="max-width:100%;max-height:100%;object-fit:contain"
+               onerror="this.parentElement.innerHTML='<span style=color:#444>无图片</span>'">
+        </div>
+      </div>
+      <div style="flex:1;background:#1a1a2e;border:1px solid #2a2a4a;border-radius:12px;padding:16px;text-align:center">
+        <div style="font-size:13px;color:#888;margin-bottom:12px">3D (Live2D) 预览</div>
+        <div id="live2dPreviewWrap" style="width:200px;height:200px;margin:0 auto;background:#0f0f1a;border-radius:8px;display:flex;align-items:center;justify-content:center">
+          <span style="color:#444;font-size:12px">Live2D 预览<br>（仅桌面端可用）</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:12px">
+          <span style="font-size:11px;color:#888">缩放</span>
+          <input type="range" min="0.5" max="2.0" step="0.05" value="${live2dScale}"
+            style="flex:1;accent-color:#6366f1"
+            oninput="document.getElementById('scaleVal').textContent=parseFloat(this.value).toFixed(2)"
+            onchange="saveLive2dScale('${c.id}', parseFloat(this.value))">
+          <span id="scaleVal" style="color:#6366f1;font-size:13px;min-width:32px">${live2dScale.toFixed ? live2dScale.toFixed(2) : live2dScale}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2D States -->
+    <h3 style="font-size:15px;margin-bottom:12px;color:#ccc">2D 表情图片</h3>
+    <div class="btn-group" style="margin-bottom:20px;">
+      <button class="btn btn-primary" onclick="openGeneratePanel()">生成图片</button>
+      <button class="btn btn-secondary" onclick="removeBgForChar('${c.id}')">去除背景</button>
+    </div>
+
+    <div class="generate-panel" id="generatePanel">
+      <h3 style="margin-bottom:16px; font-size:15px;">生成角色图片</h3>
+      <div class="form-group">
+        <label>上传参考图（可选）</label>
+        <input type="file" id="genRefImage" accept="image/*">
+      </div>
+      <div class="form-group">
+        <label>角色基础描述 (Base Prompt)</label>
+        <textarea id="genBasePrompt" style="min-height:100px;" placeholder="A single chibi Q-version anime girl...">${esc(c.prompts?.base_prompt || '')}</textarea>
+      </div>
+      <h4 style="margin:12px 0 8px; font-size:13px; color:#888;">各状态描述</h4>
+      ${STATES.map(s => `
+        <div class="form-group">
+          <label>${STATE_LABELS[s]} (${s})</label>
+          <input id="genState_${s}" placeholder="该状态的额外描述..." value="${esc(c.prompts?.states?.[s]?.prompt || '')}">
+        </div>
+      `).join('')}
+      <button class="btn btn-primary" id="genBtn" onclick="generateImages('${c.id}')">生成全部图片</button>
+      <div class="log" id="genLog" style="display:none;"></div>
+    </div>
+
+    <div class="img-states-grid" id="imgStatesGrid">
+      ${stateCards}
+    </div>`;
+}
+
+function openGeneratePanel() {
+  const panel = document.getElementById('generatePanel');
+  panel.classList.toggle('open');
+}
+
+async function generateImages(charId) {
+  const basePrompt = document.getElementById('genBasePrompt').value;
+  if (!basePrompt) { alert('请填写基础描述'); return; }
+
+  const statePrompts = {};
+  STATES.forEach(s => {
+    const val = document.getElementById('genState_' + s).value;
+    if (val) statePrompts[s] = val;
+  });
+  if (Object.keys(statePrompts).length === 0) { alert('请至少填写一个状态描述'); return; }
+
+  // Upload reference image if provided
+  const refFile = document.getElementById('genRefImage').files[0];
+  if (refFile) {
+    const refForm = new FormData();
+    refForm.append('image', refFile);
+    await fetch(API + '/characters/' + charId + '/upload-reference', { method:'POST', body:refForm });
+  }
+
+  const log = document.getElementById('genLog');
+  log.style.display = 'block';
+  log.textContent = '开始生成...\n';
+  document.getElementById('genBtn').disabled = true;
+
+  const form = new FormData();
+  form.append('base_prompt', basePrompt);
+  form.append('state_prompts', JSON.stringify(statePrompts));
+
+  try {
+    const res = await fetchJSON(API + '/characters/' + charId + '/generate-images', { method:'POST', body:form });
+    for (const [s, r] of Object.entries(res.results)) {
+      log.textContent += STATE_LABELS[s] + ': ' + (r.ok ? '✓ ' + (r.size/1024).toFixed(0) + 'KB' : '✗ ' + r.error) + '\n';
+    }
+    log.textContent += '生成完成！\n';
+
+    // Refresh character data and reload images section
+    characters = await fetchJSON(API + '/characters');
+    currentChar = characters.find(x => x.id === charId);
+    if (currentChar) loadDetailImages(currentChar);
+  } catch(e) {
+    log.textContent += '错误: ' + e.message + '\n';
+  }
+  const btn = document.getElementById('genBtn');
+  if (btn) btn.disabled = false;
+}
+
+async function removeBgForChar(charId) {
+  const btn = event.target;
+  btn.disabled = true;
+  btn.textContent = '处理中...';
+  try {
+    const res = await fetchJSON(API + '/characters/' + charId + '/remove-bg', { method:'POST' });
+    alert('已处理: ' + (res.processed || []).join(', '));
+    // Refresh
+    characters = await fetchJSON(API + '/characters');
+    currentChar = characters.find(x => x.id === charId);
+    if (currentChar) loadDetailImages(currentChar);
+  } catch(e) {
+    alert('错误: ' + e.message);
+  }
+  btn.disabled = false;
+  btn.textContent = '去除背景';
+}
+
+// ==================== DETAIL: VOICE ====================
+
+async function loadDetailVoice(c) {
+  const voiceProfile = c.voice_profile ? JSON.stringify(c.voice_profile, null, 2) : '(无语音配置)';
+  const voiceKey = ROBOT_VOICE_MAP[c.name] || c.name.toLowerCase().replace(/\s/g,'');
+  const TTS_BASE = API.replace('/api/admin', '/api/tts');
+
+  // Fetch actual voice config
+  let vcInfo = null;
+  try {
+    vcInfo = await fetchJSON(TTS_BASE + '/voice-config/' + voiceKey);
+  } catch(e) {}
+
+  const refFile = vcInfo?.ref_audio || 'voice_ref.wav';
+  const auxFiles = vcInfo?.aux_ref_audio || [];
+  const promptText = vcInfo?.prompt_text || '(未配置)';
+  const promptLang = vcInfo?.prompt_lang || '?';
+
+  document.getElementById('tab-voice').innerHTML = `
+    <div class="voice-section">
+      <h3 style="margin-bottom:12px; font-size:15px;">语音配置</h3>
+
+      <div style="margin-bottom:16px; padding:12px; background:#0f0f1a; border:1px solid #2a2a4a; border-radius:8px;">
+        <label style="font-size:13px; color:#888; display:block; margin-bottom:8px;">TTS 输出语言</label>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <select id="voiceLangSelect" style="flex:1; padding:8px; background:#1a1a2e; border:1px solid #2a2a4a; border-radius:6px; color:#e0e0e0; font-size:13px;">
+            <option value="ja" ${(c.voice_profile?.tts_lang || 'zh') === 'ja' ? 'selected' : ''}>日本語（日语）</option>
+            <option value="zh" ${(c.voice_profile?.tts_lang || 'zh') === 'zh' ? 'selected' : ''}>中文</option>
+          </select>
+          <button class="btn btn-sm btn-primary" onclick="saveVoiceLang('${c.id}')">保存</button>
+        </div>
+        <p style="font-size:11px; color:#555; margin-top:6px;">フリーレン、禰豆子 → 日语 / 冯宝宝 → 中文</p>
+      </div>
+
+      <div class="tts-test" style="margin-top:16px;">
+        <h4 style="margin-bottom:8px; font-size:13px; color:#888;">参考音频 <span style="color:#555;">(${esc(refFile)})</span></h4>
+        <div id="refAudioContainer"><span class="loading">加载参考音频...</span></div>
+        <div style="margin-top:8px; padding:10px; background:#1a1a2e; border-radius:6px; font-size:12px;">
+          <p style="color:#888; margin-bottom:4px;">prompt_text <span style="color:#555;">(${esc(promptLang)})</span>:</p>
+          <p style="color:#e0e0e0; font-size:13px;">${esc(promptText)}</p>
+          ${auxFiles.length ? '<p style="color:#888; margin-top:8px;">辅助参考: ' + auxFiles.map(f => '<span style="color:#aaa;">' + esc(f) + '</span>').join(', ') + '</p>' : ''}
+        </div>
+      </div>
+
+      <div class="tts-test" style="margin-top:16px;">
+        <h4 style="margin-bottom:8px; font-size:13px; color:#888;">TTS 模型对比</h4>
+        <div class="tts-row" style="margin-bottom:12px;">
+          <input id="ttsText" placeholder="输入测试文本..." value="${(c.voice_profile?.tts_lang === 'ja') ? 'こんにちは、' + esc(c.name) + 'だよ。今日はいい天気ですね。' : '你好，我是' + esc(c.name) + '。今天天气真好。'}">
+          <button class="btn btn-sm btn-primary" onclick="testAllTTS('${c.id}')">全部生成</button>
+        </div>
+        <div id="ttsCompare"></div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;">
+      <p style="font-size:12px; color:#666;">语音状态: ${c.has_voice ? '<span class="success">已配置</span>' : '<span style="color:#888;">未配置</span>'}</p>
+    </div>
+
+    <div class="tts-test" style="margin-top:20px;">
+      <h4 style="margin-bottom:12px; font-size:14px; color:#ccc;">训练数据审核</h4>
+      <div id="trainingClips"><span class="loading">加载中...</span></div>
+    </div>`;
+
+  // Load training clips
+  loadTrainingClips(voiceKey);
+
+  // Load ref audio (non-blocking)
+  // Use backend API directly (bypass Next.js proxy which hangs on binary files)
+  fetch(_apiOrigin + '/api/tts/voice-ref-file/' + voiceKey + '?_t=' + Date.now())
+    .then(function(r) { return r.blob(); })
+    .then(function(b) {
+      var container = document.getElementById('refAudioContainer');
+      if (container) container.innerHTML = '<audio controls style="width:100%;" src="' + URL.createObjectURL(b) + '"></audio>';
+    })
+    .catch(function(e) {
+      var container = document.getElementById('refAudioContainer');
+      if (container) container.innerHTML = '<span class="error">加载失败: ' + e.message + '</span>';
+    });
+
+}
+
+async function loadTrainingClips(voiceKey) {
+  const container = document.getElementById('trainingClips');
+  const TTS_BASE = _apiOrigin + '/api/tts';
+  try {
+    const clips = await fetchJSON(TTS_BASE + '/training-clips/' + voiceKey);
+    if (!clips.length) { container.innerHTML = '<span style="color:#888;">无训练数据</span>'; return; }
+
+    const ASR_RESULTS = {
+      'clip_01.wav': '高烤小铁丝,缺货不搭载,肯定心生不灵,跟到窝窝',
+      'clip_02.wav': '你把冯仙都派出虚实说得对弄懂说得实不要懂罪',
+      'clip_03.wav': '不要大声喧哗要不然,你笑得嘞我很爱买人嘞他们都死了',
+      'clip_04.wav': '其实大多时候我都急着来一笔听我嘞,听你口气,熟悉诗题',
+      'clip_05.wav': '不要试图偷偷看别人的,要不然就上一下我的ROS巴士',
+      'clip_06.wav': '(频道片头，非角色台词)',
+      'clip_07.wav': '每个人会依资运气赔下钱,而且运那么多钱',
+      'clip_08.wav': '最好,我在前面埋过好几个人咯',
+      'clip_09.wav': '不好走,不要开那么快你跟我不一样,不是长生不老',
+      'clip_10.wav': '这个火车比速度,你要是挂,就当我没说过',
+      'clip_11.wav': '你破飞了,我觉得你刮的一皮',
+      'clip_12.wav': '归雷笔经之路我给你 重新走条路',
+      'clip_13.wav': '下次没啥子事,就不要来吵我咯,要不然,就把你买咯',
+      'clip_14.wav': '(频道结尾，非角色台词)',
+    };
+
+    container.innerHTML = clips.map((clip, idx) => {
+      const asr = ASR_RESULTS[clip.filename] || '';
+      const excluded = asr.startsWith('(');
+      return `
+        <div style="display:flex; align-items:center; gap:10px; padding:10px; margin-bottom:8px; background:${excluded ? '#1a1a1a' : '#0f0f1a'}; border:1px solid ${excluded ? '#333' : '#2a2a4a'}; border-radius:6px; opacity:${excluded ? '0.5' : '1'};">
+          <div style="min-width:80px; font-size:12px; color:#888; font-family:monospace;">${clip.filename}</div>
+          <audio controls style="height:32px; min-width:200px;" src="${TTS_BASE}/training-clip/${voiceKey}/${clip.filename}?_t=${Date.now()}" preload="none"></audio>
+          <input id="asr_${idx}" style="flex:1; padding:6px 8px; background:#1a1a2e; border:1px solid #2a2a4a; border-radius:4px; color:#e0e0e0; font-size:12px;" value="${esc(asr)}" placeholder="输入正确文本...">
+          <label style="font-size:11px; color:#888; white-space:nowrap;"><input type="checkbox" id="use_${idx}" ${excluded ? '' : 'checked'}> 使用</label>
+        </div>`;
+    }).join('');
+
+    container.innerHTML += '<button class="btn btn-primary" style="margin-top:12px;" onclick="exportTrainingData()">导出训练数据</button>';
+    window._trainingClips = clips;
+  } catch(e) {
+    container.innerHTML = '<span class="error">加载失败: ' + e.message + '</span>';
+  }
+}
+
+function exportTrainingData() {
+  const clips = window._trainingClips || [];
+  const lines = [];
+  clips.forEach((clip, idx) => {
+    const used = document.getElementById('use_' + idx)?.checked;
+    const text = document.getElementById('asr_' + idx)?.value?.trim();
+    if (used && text && !text.startsWith('(')) {
+      lines.push(clip.filename + '|fengbaobao|zh|' + text);
+    }
+  });
+  const result = lines.join('\n');
+  // Copy to clipboard and show
+  navigator.clipboard.writeText(result).then(() => {
+    alert('已复制 ' + lines.length + ' 条训练数据到剪贴板！\\n格式: filename|speaker|lang|text');
+  }).catch(() => {
+    prompt('复制以下内容:', result);
+  });
+}
+
+async function saveVoiceLang(charId) {
+  const lang = document.getElementById('voiceLangSelect').value;
+  try {
+    await fetchJSON(API + '/characters/' + charId + '/voice-lang', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ tts_lang: lang })
+    });
+    alert('已保存: ' + (lang === 'ja' ? '日语' : '中文'));
+  } catch(e) {
+    alert('保存失败: ' + e.message);
+  }
+}
+
+function testAllTTS(charId) {
+  const text = document.getElementById('ttsText').value;
+  if (!text) return;
+
+  const c = characters.find(x => x.id === charId);
+  const character = ROBOT_VOICE_MAP[c?.name] || c?.name?.toLowerCase().replace(/\s/g,'') || 'frieren';
+  const container = document.getElementById('ttsCompare');
+
+  const models = [
+    { name: 'CosyVoice2', endpoint: _apiOrigin + '/api/tts/speak-genie', params: { text, character, emotion: 'Normal', lang: 'auto' } },
+    { name: 'Qwen3 1.7B (8bit)', endpoint: _apiOrigin + '/api/tts/speak-qwen3', params: { text, character, model_size: '1.7b-8bit' } },
+    { name: 'Qwen3 1.7B (bf16)', endpoint: _apiOrigin + '/api/tts/speak-qwen3', params: { text, character, model_size: '1.7b-bf16' } },
+    { name: 'Qwen3 0.6B (快速)', endpoint: _apiOrigin + '/api/tts/speak-qwen3', params: { text, character, model_size: '0.6b-bf16' } },
+  ];
+
+  container.innerHTML = models.map(function(m, i) {
+    return '<div id="tts_model_' + i + '" style="padding:12px; margin-bottom:8px; background:#0f0f1a; border:1px solid #2a2a4a; border-radius:8px;">' +
+      '<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">' +
+        '<span style="font-size:13px; font-weight:600; color:#ccc;">' + m.name + '</span>' +
+        '<span id="tts_status_' + i + '" style="font-size:11px; color:#888;">生成中...</span>' +
+      '</div>' +
+      '<div id="tts_audio_' + i + '"><div class="nomi-orb" style="width:16px;height:16px;"></div></div>' +
+    '</div>';
+  }).join('');
+
+  models.forEach(function(m, i) {
+    var t0 = Date.now();
+    var url = m.endpoint + '?' + new URLSearchParams(m.params).toString();
+    fetch(url)
+      .then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.blob();
+      })
+      .then(function(blob) {
+        var elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+        var blobUrl = URL.createObjectURL(blob);
+        document.getElementById('tts_audio_' + i).innerHTML = '<audio controls style="width:100%;" src="' + blobUrl + '"></audio>';
+        document.getElementById('tts_status_' + i).innerHTML = '<span style="color:#4a4">' + elapsed + '秒 · ' + Math.round(blob.size/1024) + 'KB</span>';
+      })
+      .catch(function(e) {
+        document.getElementById('tts_audio_' + i).innerHTML = '';
+        document.getElementById('tts_status_' + i).innerHTML = '<span style="color:#a44;">失败: ' + e.message + '</span>';
+      });
+  });
+}
+
+// ==================== DETAIL: MEMORIES ====================
+
+async function loadDetailMemories(charId) {
+  const container = document.getElementById('tab-memories');
+  container.innerHTML = '<p class="loading">加载中...</p>';
+
+  try {
+    const memories = await fetchJSON(API + '/characters/' + charId + '/memories');
+
+    // Build memories action bar (always show for building/rebuilding)
+    const c = characters.find(x => x.id === charId);
+    const actionBar = `
+      <div style="margin-bottom:16px; display:flex; gap:12px; align-items:center;">
+        <input id="memorySource" placeholder="来源作品（如：葬送的芙莉莲）" style="flex:1; padding:8px 12px; background:#0f0f1a; border:1px solid #2a2a4a; border-radius:8px; color:#e0e0e0; font-size:13px;">
+        <button class="btn btn-primary" onclick="buildMemoriesFromWeb('${charId}')">从网络构建记忆</button>
+      </div>
+      <div id="buildMemoryLog" class="log" style="display:none;"></div>`;
+
+    if (!memories || memories.length === 0) {
+      container.innerHTML = actionBar + '<p style="color:#888;">暂无记忆数据，可以通过网络搜索来构建角色记忆</p>';
+      return;
+    }
+
+    // Group by age
+    const groups = {};
+    for (const m of memories) {
+      const age = m.age != null ? m.age : '未知';
+      if (!groups[age]) groups[age] = [];
+      groups[age].push(m);
+    }
+
+    let html = '<div class="memory-timeline">';
+    for (const [age, mems] of Object.entries(groups)) {
+      html += `
+        <div class="memory-group">
+          <div class="memory-group-label">${age === '未知' ? '未知年龄' : age + ' 岁'}</div>
+          ${mems.map(m => {
+            const typeClass = m.memory_type || 'fragment';
+            const typeName = {vivid:'鲜明记忆', fragment:'记忆碎片', feeling:'情感记忆'}[typeClass] || typeClass;
+            const importance = m.importance != null ? m.importance : 0;
+            const strength = m.strength != null ? m.strength : 1;
+            return `
+              <div class="memory-item" style="opacity:${0.4 + strength * 0.6}" onclick="this.classList.toggle('expanded')">
+                <div class="mem-header">
+                  <span class="mem-title">${esc(m.title || '(无标题)')}</span>
+                  <span class="mem-badge ${typeClass}">${typeName}</span>
+                </div>
+                <div class="importance-bar"><div class="fill" style="width:${importance * 100}%"></div></div>
+                <div class="mem-content">${esc(m.content || '(无内容)')}</div>
+              </div>`;
+          }).join('')}
+        </div>`;
+    }
+    html += '</div>';
+    container.innerHTML = actionBar + html;
+  } catch(e) {
+    container.innerHTML = '<p class="error">加载失败: ' + e.message + '</p>';
+  }
+}
+
+async function buildMemoriesFromWeb(charId) {
+  const source = document.getElementById('memorySource').value;
+  if (!source) { alert('请输入来源作品名称'); return; }
+
+  const log = document.getElementById('buildMemoryLog');
+  log.style.display = 'block';
+  log.textContent = '开始构建记忆...\n';
+
+  try {
+    const res = await fetchJSON(API + '/characters/' + charId + '/build-memories', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source: source }),
+    });
+
+    if (res.error) {
+      log.textContent += '错误: ' + res.error + '\n';
+      return;
+    }
+
+    const jobId = res.job_id;
+    const pollInterval = setInterval(async () => {
+      try {
+        const status = await fetchJSON(API + '/characters/create-from-web/status/' + jobId);
+        log.textContent = `状态: ${status.status}\n${status.progress || ''}\n`;
+        log.scrollTop = log.scrollHeight;
+
+        if (status.status === 'done' || status.status === 'failed') {
+          clearInterval(pollInterval);
+          if (status.status === 'done') {
+            log.textContent += '\n记忆构建完成！';
+            // Reload memories
+            loadDetailMemories(charId);
+          }
+        }
+      } catch(e) {
+        clearInterval(pollInterval);
+        log.textContent += '\n轮询失败: ' + e.message;
+      }
+    }, 2000);
+  } catch(e) {
+    log.textContent += '错误: ' + e.message + '\n';
+  }
+}
+
+// ==================== VERSION HISTORY ====================
+
+async function showVersionHistory(charId, state) {
+  const modal = document.getElementById('versionModal');
+  document.getElementById('versionModalTitle').textContent = STATE_LABELS[state] + ' - 版本历史';
+  document.getElementById('versionModalBody').innerHTML = '<p class="loading">加载中...</p>';
+  modal.classList.add('show');
+
+  try {
+    const versions = await fetchJSON(API + '/characters/' + charId + '/versions?asset_type=image&asset_key=' + state);
+
+    if (!versions || versions.length === 0) {
+      document.getElementById('versionModalBody').innerHTML = '<p style="color:#888;">暂无版本记录</p>';
+      return;
+    }
+
+    document.getElementById('versionModalBody').innerHTML = versions.map(v => `
+      <div class="version-item" id="ver-${v.id}">
+        <img class="ver-thumb"
+             src="${API}/characters/${charId}/versions/${v.id}/file"
+             onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect fill=%22%231a1a2e%22 width=%2264%22 height=%2264%22 rx=%228%22/><text x=%2232%22 y=%2238%22 fill=%22%23444%22 text-anchor=%22middle%22 font-size=%2216%22>?</text></svg>'">
+        <div class="ver-meta">
+          <div class="ver-num">v${v.version_number}</div>
+          <div class="ver-date">${v.created_at ? new Date(v.created_at).toLocaleString('zh-CN') : '未知时间'}</div>
+          <div class="ver-prompt">${esc(v.metadata?.prompt || '')}</div>
+        </div>
+        ${v.is_current ? '<span class="ver-badge">当前</span>' : ''}
+        <button class="star-btn" onclick="event.stopPropagation();toggleStar('${charId}','${v.id}',this)">${v.is_starred ? '★' : '☆'}</button>
+        ${!v.is_current ? '<button class="btn btn-sm btn-primary ver-activate" onclick="event.stopPropagation();activateVersion(\'' + charId + '\',\'' + v.id + '\',\'' + state + '\')">使用此版本</button>' : ''}
+      </div>
+    `).join('');
+  } catch(e) {
+    document.getElementById('versionModalBody').innerHTML = '<p class="error">加载失败: ' + e.message + '</p>';
+  }
+}
+
+async function activateVersion(charId, versionId, state) {
+  try {
+    await fetchJSON(API + '/characters/' + charId + '/versions/' + versionId + '/activate', { method:'POST' });
+    closeVersionModal();
+    // Refresh
+    characters = await fetchJSON(API + '/characters');
+    currentChar = characters.find(x => x.id === charId);
+    if (currentChar) loadDetailImages(currentChar);
+  } catch(e) {
+    alert('激活失败: ' + e.message);
+  }
+}
+
+async function toggleStar(charId, versionId, el) {
+  try {
+    const res = await fetchJSON(API + '/characters/' + charId + '/versions/' + versionId + '/star', { method:'POST' });
+    el.textContent = res.is_starred ? '★' : '☆';
+  } catch(e) {
+    alert('操作失败: ' + e.message);
+  }
+}
+
+function closeVersionModal() {
+  document.getElementById('versionModal').classList.remove('show');
+}
+
+// ==================== CREATE CHARACTER ====================
+
+function showCreateModal() {
+  document.getElementById('createModal').classList.add('show');
+  switchCreateMode('manual');
+}
+
+function closeCreateModal() {
+  document.getElementById('createModal').classList.remove('show');
+}
+
+function switchCreateMode(mode) {
+  document.querySelectorAll('.create-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.create-mode').forEach(p => p.classList.remove('active'));
+
+  if (mode === 'manual') {
+    document.querySelectorAll('.create-tab')[0].classList.add('active');
+    document.getElementById('createManual').classList.add('active');
+  } else {
+    document.querySelectorAll('.create-tab')[1].classList.add('active');
+    document.getElementById('createWeb').classList.add('active');
+  }
+}
+
+async function createCharacter() {
+  const form = new FormData();
+  form.append('name', document.getElementById('newName').value);
+  form.append('dir_name', document.getElementById('newDirName').value);
+  form.append('origin_story', document.getElementById('newStory').value);
+  form.append('personality', document.getElementById('newPersonality').value || '{}');
+  form.append('system_prompt', document.getElementById('newPrompt').value);
+
+  const el = document.getElementById('createResult');
+  el.innerHTML = '<span class="loading">创建中...</span>';
+  try {
+    const res = await fetchJSON(API + '/characters/create', { method:'POST', body:form });
+    if (res.error) { el.innerHTML = '<span class="error">' + res.error + '</span>'; return; }
+    el.innerHTML = '<span class="success">创建成功！ID: ' + res.id + '</span>';
+    // Refresh list
+    await loadCharacters();
+    setTimeout(() => closeCreateModal(), 1000);
+  } catch(e) {
+    el.innerHTML = '<span class="error">失败: ' + e.message + '</span>';
+  }
+}
+
+async function createFromWeb() {
+  const name = document.getElementById('webCharName').value;
+  const source = document.getElementById('webSource').value;
+  if (!name) { alert('请输入角色名称'); return; }
+
+  const log = document.getElementById('webLog');
+  log.style.display = 'block';
+  log.textContent = '开始构建...\n';
+
+  try {
+    const res = await fetchJSON(API + '/characters/create-from-web', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ character_name: name, source: source })
+    });
+
+    if (res.error) {
+      log.textContent += '错误: ' + res.error + '\n';
+      return;
+    }
+
+    const jobId = res.job_id;
+    if (!jobId) {
+      log.textContent += '创建完成\n';
+      await loadCharacters();
+      return;
+    }
+
+    // Poll for progress
+    const pollInterval = setInterval(async () => {
+      try {
+        const status = await fetchJSON(API + '/characters/create-from-web/status/' + jobId);
+        log.textContent = `状态: ${status.status}\n${status.progress || ''}\n`;
+        log.scrollTop = log.scrollHeight;
+
+        if (status.status === 'done' || status.status === 'failed') {
+          clearInterval(pollInterval);
+          if (status.status === 'done') {
+            log.textContent += '\n构建完成！';
+            await loadCharacters();
+            if (status.robot_id) {
+              setTimeout(() => showDetail(status.robot_id), 500);
+            }
+          } else {
+            log.textContent += '\n构建失败: ' + (status.progress || '');
+          }
+        }
+      } catch(e) {
+        clearInterval(pollInterval);
+        log.textContent += '\n轮询失败: ' + e.message;
+      }
+    }, 2000);
+  } catch(e) {
+    log.textContent += '请求失败: ' + e.message + '\n';
+  }
+}
+
+// ==================== HELPERS ====================
+
+function esc(s) {
+  if (s == null) return '';
+  const div = document.createElement('div');
+  div.textContent = String(s);
+  return div.innerHTML;
+}
+
+function formatJSON(obj) {
+  if (!obj) return '(未设置)';
+  if (typeof obj === 'string') return obj;
+  try {
+    return JSON.stringify(obj, null, 2);
+  } catch(e) {
+    return String(obj);
+  }
+}
+
+// ==================== INIT ====================
+
+// ==================== TTS SETTINGS ====================
+async function loadTTSConfig() {
+  try {
+    const cfg = await fetchJSON(_apiOrigin + '/api/tts/config');
+    const label = cfg.engine === 'qwen3' ? 'Qwen3 ' + (cfg.qwen3_model || '1.7b-8bit') : 'CosyVoice2';
+    document.getElementById('ttsEngineIndicator').textContent = 'TTS: ' + label;
+    return cfg;
+  } catch(e) { return { engine: 'qwen3', qwen3_model: '1.7b-8bit' }; }
+}
+
+async function showTTSSettings() {
+  const cfg = await loadTTSConfig();
+  document.getElementById('ttsEngineSelect').value = cfg.engine || 'qwen3';
+  document.getElementById('qwen3ModelSelect').value = cfg.qwen3_model || '1.7b-8bit';
+  document.getElementById('qwen3ModelRow').style.display = cfg.engine === 'qwen3' ? 'block' : 'none';
+  document.getElementById('ttsEngineSelect').onchange = function() {
+    document.getElementById('qwen3ModelRow').style.display = this.value === 'qwen3' ? 'block' : 'none';
+  };
+  document.getElementById('ttsSettingsModal').style.display = 'flex';
+}
+
+function closeTTSSettings() {
+  document.getElementById('ttsSettingsModal').style.display = 'none';
+}
+
+async function saveTTSSettings() {
+  const engine = document.getElementById('ttsEngineSelect').value;
+  const qwen3Model = document.getElementById('qwen3ModelSelect').value;
+  try {
+    const params = new URLSearchParams({ engine, qwen3_model: qwen3Model });
+    await fetch(_apiOrigin + '/api/tts/config?' + params.toString(), { method: 'POST' });
+    closeTTSSettings();
+    loadTTSConfig();
+  } catch(e) { alert('保存失败: ' + e.message); }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadCharacters();
+  loadTTSConfig();
+
+  // Route: if URL has ?id=xxx, open that character's detail
+  const params = new URLSearchParams(window.location.search);
+  const charId = params.get('id');
+  if (charId && characters.find(x => x.id === charId)) {
+    showDetail(charId);
+  }
+});
+
+// Handle browser back/forward
+window.addEventListener('popstate', () => {
+  const params = new URLSearchParams(window.location.search);
+  const charId = params.get('id');
+  if (charId && characters.find(x => x.id === charId)) {
+    showDetail(charId);
+  } else {
+    showList();
+  }
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeVersionModal();
+    closeCreateModal();
+  }
+});
+</script>
+</body>
+</html>

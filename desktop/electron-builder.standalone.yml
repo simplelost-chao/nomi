@@ -1,0 +1,37 @@
+appId: com.nomi.desktop
+productName: Nomi
+directories:
+  output: release
+mac:
+  target:
+    - target: dir
+      arch: arm64
+    - target: dmg
+      arch: arm64
+  category: public.app-category.social-networking
+  icon: build/icon.icns
+  darkModeSupport: true
+  extendInfo:
+    NSMicrophoneUsageDescription: "Nomi needs microphone access for voice conversations"
+files:
+  - dist/**/*
+  - assets/**/*
+extraResources:
+  # Screen-capture helper app + OCR script must sit on the real filesystem
+  # (Contents/Resources/tools/), NOT inside app.asar, so `open`/`swift` can use them.
+  - from: tools/NomiScreenshot.app
+    to: tools/NomiScreenshot.app
+  - from: tools/ocr.swift
+    to: tools/ocr.swift
+# NOTE: backend (nomi-server) intentionally NOT bundled here.
+# The desktop app talks to the central Nomi backend at 127.0.0.1:8100,
+# which must be running separately. Bundling the PyInstaller backend is a
+# follow-up handled by electron-builder.yml + backend/desktop/build.py.
+dmg:
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
