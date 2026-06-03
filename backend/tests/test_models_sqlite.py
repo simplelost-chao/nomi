@@ -79,3 +79,23 @@ def test_insert_and_read_memory_with_array(sqlite_engine):
         fetched = session.get(Memory, memory.id)
         assert fetched.emotional_tags == ["happy", "excited"]
         assert fetched.symbolic_tags == ["friendship"]
+
+
+def test_memory_iteration_fields_exist(sqlite_engine):
+    import uuid
+    from sqlalchemy.orm import Session
+    from app.db.models import User, Memory
+
+    with Session(sqlite_engine) as session:
+        user = User(id=uuid.uuid4(), name="t")
+        session.add(user)
+        session.flush()
+        m = Memory(id=uuid.uuid4(), user_id=user.id, content="hi")
+        session.add(m)
+        session.commit()
+        fetched = session.get(Memory, m.id)
+        assert fetched.retrieved_count == 0
+        assert fetched.useful_count == 0
+        assert fetched.utility_score == 0.0
+        assert fetched.consolidated_into is None
+        assert fetched.archived is False

@@ -3,11 +3,13 @@ from datetime import datetime
 
 from sqlalchemy import (
     TIMESTAMP,
+    Boolean,
     Float,
     ForeignKey,
     Integer,
     Text,
     Uuid,
+    false as sa_false,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -153,6 +155,12 @@ class Memory(Base):
     reinterpretation: Mapped[str | None] = mapped_column(Text)
     linked_memory_ids: Mapped[list[uuid.UUID] | None] = mapped_column(ArrayType(Uuid))
     memory_source: Mapped[str | None] = mapped_column(Text, default="conversation")
+    # --- Self-iteration (P1) ---
+    retrieved_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    useful_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    utility_score: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
+    consolidated_into: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    archived: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sa_false())
 
 
 class ActivityLog(Base):
