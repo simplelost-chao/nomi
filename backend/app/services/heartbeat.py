@@ -334,6 +334,7 @@ async def _build_trigger(robot: Robot, others: list[Robot], beat_count: int, rec
                         result = await session.execute(
                             select(Memory)
                             .where(Memory.owner_id == robot.id)
+                            .where(Memory.archived.is_(False))
                             .where(Memory.importance_score > 0.15)
                             .where(Memory.embedding.isnot(None))
                             .order_by(Memory.embedding.cosine_distance(query_embedding))
@@ -349,6 +350,7 @@ async def _build_trigger(robot: Robot, others: list[Robot], beat_count: int, rec
                     result = await session.execute(
                         select(Memory)
                         .where(Memory.owner_id == robot.id)
+                        .where(Memory.archived.is_(False))
                         .where(Memory.importance_score > 0.15)
                         .order_by(func.random())
                         .limit(2)
@@ -356,8 +358,9 @@ async def _build_trigger(robot: Robot, others: list[Robot], beat_count: int, rec
                     memories = list(result.scalars().all())
 
                 if memories:
-                    from app.services.memory_evolution import activate_memories
+                    from app.services.memory_evolution import activate_memories, record_retrieval
                     await activate_memories(session, [m.id for m in memories])
+                    await record_retrieval(session, [m.id for m in memories])
                     mem_texts = []
                     for m in memories:
                         text = m.summary or (m.content[:120] if m.content else None)

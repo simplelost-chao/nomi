@@ -593,9 +593,9 @@ async def agent_chat(
                         for tag in set(mentioned_tags):
                             if tag in _id_by_tag:
                                 used_ids.append(_id_by_tag[tag])
-                    if used_ids:
-                        await record_usefulness(bg_session, retrieved_ids=_recalled_ids, used_ids=used_ids)
-                        await activate_memories(bg_session, used_ids)
+                    # Always record usefulness — even when used_ids is empty, the EMA
+                    # downward pressure on unused memories is the whole point of the signal.
+                    await record_usefulness(bg_session, retrieved_ids=_recalled_ids, used_ids=used_ids)
 
                 convo_msgs = [
                     {"sender": "主人", "content": _message},
