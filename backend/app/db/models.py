@@ -161,6 +161,7 @@ class Memory(Base):
     utility_score: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
     consolidated_into: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     archived: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sa_false())
+    memory_layer: Mapped[str] = mapped_column(Text, default="episodic", server_default="episodic")
 
 
 class ActivityLog(Base):

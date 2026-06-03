@@ -99,3 +99,13 @@ def test_memory_iteration_fields_exist(sqlite_engine):
         assert fetched.utility_score == 0.0
         assert fetched.consolidated_into is None
         assert fetched.archived is False
+
+
+def test_memory_layer_defaults_episodic(sqlite_engine):
+    import uuid
+    from sqlalchemy.orm import Session
+    from app.db.models import User, Memory
+    with Session(sqlite_engine) as s:
+        u = User(id=uuid.uuid4(), name="t"); s.add(u); s.flush()
+        m = Memory(id=uuid.uuid4(), user_id=u.id, content="x"); s.add(m); s.commit()
+        assert s.get(Memory, m.id).memory_layer == "episodic"
