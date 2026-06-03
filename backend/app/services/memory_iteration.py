@@ -74,6 +74,32 @@ def should_forget(
     )
 
 
+def rerank_candidates(candidates: list, query_embedding: list[float], now: datetime,
+                      limit: int, weights: tuple[float, float, float, float] = HYBRID_WEIGHTS) -> list:
+    """Re-rank already-fetched memory candidates by hybrid_score; return top `limit`.
+
+    Each candidate needs: .embedding, .importance_score, .utility_score,
+    .last_activated (or .created_at).
+    """
+    scored = []
+    for m in candidates:
+        if m.embedding is None:
+            continue
+        cos = cosine_similarity(query_embedding, m.embedding)
+        last = getattr(m, "last_activated", None) or getattr(m, "created_at", None) or now
+        hours = max(0.0, (now - last).total_seconds() / 3600.0)
+        score = hybrid_score(
+            cos,
+            m.importance_score or 0.0,
+            getattr(m, "utility_score", 0.0) or 0.0,
+            recency_decay(hours),
+            weights,
+        )
+        scored.append((m, score))
+    scored.sort(key=lambda x: x[1], reverse=True)
+    return [m for m, _ in scored[:limit]]
+
+
 def cluster_by_similarity(items: list, threshold: float = 0.92) -> list[list]:
     """Greedy single-pass clustering by cosine of each item's `.embedding`.
 

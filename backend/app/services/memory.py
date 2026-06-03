@@ -71,29 +71,28 @@ class MemoryService:
         if settings.is_sqlite:
             return await self._search_memories_sqlite(query, user_id, owner_id, limit)
 
-        query_embedding = await self.llm.embed(query)
+        from app.services.memory_iteration import rerank_candidates
 
+        query_embedding = await self.llm.embed(query)
+        candidate_k = max(limit * 5, 20)
         stmt = (
             select(Memory)
             .where(Memory.user_id == user_id)
             .where(Memory.embedding.isnot(None))
+            .where(Memory.archived.is_(False))
         )
         if owner_id:
             stmt = stmt.where(Memory.owner_id == owner_id)
-
-        stmt = stmt.order_by(
-            Memory.embedding.cosine_distance(query_embedding)
-        ).limit(limit)
+        stmt = stmt.order_by(Memory.embedding.cosine_distance(query_embedding)).limit(candidate_k)
 
         result = await self.session.execute(stmt)
-        memories = result.scalars().all()
+        candidates = list(result.scalars().all())
+        memories = rerank_candidates(candidates, query_embedding, datetime.utcnow(), limit)
 
-        # Update last_accessed_at
         for memory in memories:
             memory.last_accessed_at = datetime.utcnow()
         await self.session.commit()
-
-        return list(memories)
+        return memories
 
     async def _search_memories_sqlite(
         self,
@@ -109,24 +108,15 @@ class MemoryService:
             select(Memory)
             .where(Memory.user_id == user_id)
             .where(Memory.embedding.isnot(None))
+            .where(Memory.archived.is_(False))
         )
         if owner_id:
             stmt = stmt.where(Memory.owner_id == owner_id)
 
         result = await self.session.execute(stmt)
-        all_memories = result.scalars().all()
-
-        # Rank by cosine similarity (highest first)
-        scored = [
-            (memory, cosine_similarity(query_embedding, memory.embedding))
-            for memory in all_memories
-            if memory.embedding is not None
-        ]
-        scored.sort(key=lambda x: x[1], reverse=True)
-
-        memories = [memory for memory, _score in scored[:limit]]
-
-        # Update last_accessed_at
+        all_memories = [m for m in result.scalars().all() if m.embedding is not None]
+        from app.services.memory_iteration import rerank_candidates
+        memories = rerank_candidates(all_memories, query_embedding, datetime.utcnow(), limit)
         for memory in memories:
             memory.last_accessed_at = datetime.utcnow()
         await self.session.commit()

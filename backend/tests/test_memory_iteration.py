@@ -98,3 +98,32 @@ def test_cluster_singletons_when_all_different():
     items = [_Item("a", [1.0, 0.0]), _Item("b", [0.0, 1.0])]
     clusters = cluster_by_similarity(items, threshold=0.95)
     assert len(clusters) == 2
+
+
+class _Mem:
+    def __init__(self, name, embedding, importance, utility, last_activated):
+        self.name = name
+        self.embedding = embedding
+        self.importance_score = importance
+        self.utility_score = utility
+        self.last_activated = last_activated
+        self.created_at = last_activated
+
+
+def test_rerank_prefers_useful_over_pure_cosine():
+    from datetime import datetime
+    from app.services.memory_iteration import rerank_candidates
+    now = datetime(2026, 6, 4)
+    q = [1.0, 0.0]
+    m_close = _Mem("close", [1.0, 0.0], importance=0.3, utility=0.0, last_activated=now)
+    m_useful = _Mem("useful", [0.9, 0.1], importance=0.9, utility=0.9, last_activated=now)
+    ranked = rerank_candidates([m_close, m_useful], q, now, limit=1)
+    assert ranked[0].name == "useful"
+
+
+def test_rerank_respects_limit():
+    from datetime import datetime
+    from app.services.memory_iteration import rerank_candidates
+    now = datetime(2026, 6, 4)
+    mems = [_Mem(str(i), [1.0, 0.0], 0.5, 0.5, now) for i in range(5)]
+    assert len(rerank_candidates(mems, [1.0, 0.0], now, limit=3)) == 3
