@@ -139,3 +139,15 @@ def test_principle_boost_lifts_score():
     from app.services.memory_iteration import apply_layer_boost
     assert apply_layer_boost(0.5, "principle") > apply_layer_boost(0.5, "episodic")
     assert apply_layer_boost(0.5, "episodic") == 0.5
+
+
+def test_evict_lowest_confidence_caps_count():
+    from app.services.memory_iteration import evict_lowest_confidence
+
+    class P:
+        def __init__(self, id, conf):
+            self.id, self.importance_score = id, conf
+    ps = [P(i, c) for i, c in enumerate([0.9, 0.2, 0.5, 0.1, 0.7])]
+    keep, evict = evict_lowest_confidence(ps, cap=3)
+    assert {p.id for p in keep} == {0, 2, 4}
+    assert {p.id for p in evict} == {1, 3}

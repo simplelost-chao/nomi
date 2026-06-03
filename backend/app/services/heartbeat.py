@@ -998,8 +998,10 @@ SLEEP_CYCLE_INTERVAL = 6 * 3600  # 6 hours in seconds
 
 
 async def _sleep_cycle_loop():
-    """Background task: run memory dedup + safe forget every 6 hours."""
+    """Background task: run memory dedup + consolidation + insight every 6 hours."""
     from app.services.sleep_cycle import run_sleep_cycle
+    from app.services.llm.factory import create_llm
+    from app.config import settings
     while _alive:
         try:
             await asyncio.sleep(SLEEP_CYCLE_INTERVAL)
@@ -1010,11 +1012,39 @@ async def _sleep_cycle_loop():
                     select(Robot).where(Robot.user_id == DEFAULT_USER_ID)
                 )
                 robots = list(result.scalars().all())
+            # Create one real LLM instance per loop iteration (shared across robots)
+            llm = create_llm(
+                settings.llm_provider,
+                anthropic_api_key=settings.anthropic_api_key,
+                openai_api_key=settings.openai_api_key,
+            )
             for robot in robots:
                 try:
                     async with async_session() as session:
-                        stats = await run_sleep_cycle(session, None, robot)
-                    print(f"[heartbeat] Sleep cycle for {robot.name}: {stats}")
+                        # Re-fetch robot in this session so mutations persist
+                        fresh_robot = (await session.execute(
+                            select(Robot).where(Robot.id == robot.id)
+                        )).scalar_one_or_none()
+                        if fresh_robot is None:
+                            continue
+                        # Maintain sleep counter in current_status JSON
+                        status = dict(fresh_robot.current_status or {})
+                        status["sleep_count"] = status.get("sleep_count", 0) + 1
+                        run_insight = (status["sleep_count"] % 4 == 0)
+                        # Assign a new dict so SQLAlchemy detects the mutation
+                        fresh_robot.current_status = status
+                        await session.commit()
+                        # Run the sleep cycle with real LLM
+                        async with async_session() as cycle_session:
+                            cycle_robot = (await cycle_session.execute(
+                                select(Robot).where(Robot.id == robot.id)
+                            )).scalar_one_or_none()
+                            stats = await run_sleep_cycle(
+                                cycle_session, llm, cycle_robot,
+                                run_insight=run_insight,
+                            )
+                    print(f"[heartbeat] Sleep cycle for {robot.name} "
+                          f"(sleep #{status['sleep_count']}, insight={run_insight}): {stats}")
                 except Exception as e:
                     print(f"[heartbeat] Sleep cycle error for {robot.name}: {e}")
         except asyncio.CancelledError:

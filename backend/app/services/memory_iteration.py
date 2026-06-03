@@ -113,6 +113,12 @@ def apply_layer_boost(score: float, layer: str) -> float:
     return score + LAYER_BOOST.get(layer or "episodic", 0.0)
 
 
+def evict_lowest_confidence(principles: list, cap: int = 20) -> tuple[list, list]:
+    """Keep top-`cap` principles by importance_score(=confidence); return (keep, evict)."""
+    ordered = sorted(principles, key=lambda p: p.importance_score or 0.0, reverse=True)
+    return ordered[:cap], ordered[cap:]
+
+
 def cluster_by_similarity(items: list, threshold: float = 0.92) -> list[list]:
     """Greedy single-pass clustering by cosine of each item's `.embedding`.
 
