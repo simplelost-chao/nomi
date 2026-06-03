@@ -356,6 +356,8 @@ async def _build_trigger(robot: Robot, others: list[Robot], beat_count: int, rec
                     memories = list(result.scalars().all())
 
                 if memories:
+                    from app.services.memory_evolution import activate_memories
+                    await activate_memories(session, [m.id for m in memories])
                     mem_texts = []
                     for m in memories:
                         text = m.summary or (m.content[:120] if m.content else None)

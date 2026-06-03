@@ -366,6 +366,7 @@ async def agent_chat(
 
     memory_texts = []
     recalled_memory_ids = []
+    id_by_tag: dict[str, object] = {}
     try:
         llm = create_llm(settings.llm_provider)
         memory_service = MemoryService(session=session, llm=llm)
@@ -379,9 +380,12 @@ async def agent_chat(
             owner_id=robot.id,
             limit=5,
         )
-        for mem in memories:
-            memory_texts.append(mem.summary or mem.content or "")
+        for i, mem in enumerate(memories):
+            tag = f"M{i + 1}"
+            text = mem.summary or mem.content or ""
+            memory_texts.append(f"[{tag}] {text}")
             recalled_memory_ids.append(mem.id)
+            id_by_tag[tag] = mem.id
         if memory_texts:
             print(f"[agent-chat] Recalled {len(memory_texts)} memories")
     except Exception as e:
@@ -399,6 +403,9 @@ async def agent_chat(
     )
     if robot.system_prompt:
         system_prompt = robot.system_prompt + "\n\n" + system_prompt
+
+    if id_by_tag:
+        system_prompt += "\n\n如果你的回复用到了某条记忆，请在回复末尾注明它的编号（如 (M1) 或 (M1,M2)）。"
 
     system_prompt += """
 
@@ -563,17 +570,33 @@ async def agent_chat(
     import asyncio
     from app.db.engine import async_session as _async_session
     _recalled_ids = list(recalled_memory_ids) if recalled_memory_ids else []
+    _id_by_tag = dict(id_by_tag)
     _robot_id = robot.id
     _message = body.message
     _reply = reply
+    _raw_content = raw_content
     _screen = body.screen_description
     _robot_name = robot.name
 
     async def _post_chat_memory():
         try:
+            from app.services.memory_evolution import record_retrieval, record_usefulness
             async with _async_session() as bg_session:
                 if _recalled_ids:
+                    await record_retrieval(bg_session, _recalled_ids)
                     await activate_memories(bg_session, _recalled_ids)
+
+                    # Extract which memory tags the model actually mentioned in its reply
+                    used_ids = []
+                    if _id_by_tag:
+                        mentioned_tags = re.findall(r'\b(M\d+)\b', _raw_content)
+                        for tag in set(mentioned_tags):
+                            if tag in _id_by_tag:
+                                used_ids.append(_id_by_tag[tag])
+                    if used_ids:
+                        await record_usefulness(bg_session, retrieved_ids=_recalled_ids, used_ids=used_ids)
+                        await activate_memories(bg_session, used_ids)
+
                 convo_msgs = [
                     {"sender": "主人", "content": _message},
                     {"sender": _robot_name, "content": _reply},
