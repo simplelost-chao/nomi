@@ -104,9 +104,8 @@ async def run_sleep_cycle(session: AsyncSession, llm, robot: Robot,
             sem = await svc.write_memory(
                 user_id=robot.user_id, owner_type="robot", owner_id=robot.id,
                 memory_type="semantic", content=summary, importance_score=avg_imp,
-                summary=summary,
+                summary=summary, memory_layer="semantic",
             )
-            sem.memory_layer = "semantic"
             sem.linked_memory_ids = [m.id for m in cluster]
             for m in cluster:
                 m.consolidated_into = sem.id
@@ -176,8 +175,7 @@ async def run_sleep_cycle(session: AsyncSession, llm, robot: Robot,
             else:
                 p = await svc.write_memory(user_id=robot.user_id, owner_type="robot",
                     owner_id=robot.id, memory_type="principle", content=text,
-                    importance_score=conf, summary=text)
-                p.memory_layer = "principle"
+                    importance_score=conf, summary=text, memory_layer="principle")
                 existing.append(p)
                 insights += 1
         # cap principles at 20 by confidence

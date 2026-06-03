@@ -1000,8 +1000,7 @@ SLEEP_CYCLE_INTERVAL = 6 * 3600  # 6 hours in seconds
 async def _sleep_cycle_loop():
     """Background task: run memory dedup + consolidation + insight every 6 hours."""
     from app.services.sleep_cycle import run_sleep_cycle
-    from app.services.llm.factory import create_llm
-    from app.config import settings
+    from app.services.llm.deepseek import DeepSeekLLM
     while _alive:
         try:
             await asyncio.sleep(SLEEP_CYCLE_INTERVAL)
@@ -1013,11 +1012,12 @@ async def _sleep_cycle_loop():
                 )
                 robots = list(result.scalars().all())
             # Create one real LLM instance per loop iteration (shared across robots)
-            llm = create_llm(
-                settings.llm_provider,
-                anthropic_api_key=settings.anthropic_api_key,
-                openai_api_key=settings.openai_api_key,
-            )
+            # Use same construction as _heartbeat_coordinator for consistency
+            try:
+                llm = DeepSeekLLM(model="deepseek-v4-pro")
+            except Exception as e:
+                print(f"[heartbeat] Sleep cycle LLM creation failed: {e}; skipping LLM stages this iteration")
+                llm = None
             for robot in robots:
                 try:
                     async with async_session() as session:
@@ -1027,12 +1027,17 @@ async def _sleep_cycle_loop():
                         )).scalar_one_or_none()
                         if fresh_robot is None:
                             continue
-                        # Maintain sleep counter in current_status JSON
-                        status = dict(fresh_robot.current_status or {})
+                        # Maintain sleep counter in current_status JSON (Text column)
+                        raw = fresh_robot.current_status
+                        try:
+                            status = json.loads(raw) if raw else {}
+                            if not isinstance(status, dict):
+                                status = {}
+                        except (ValueError, TypeError):
+                            status = {}
                         status["sleep_count"] = status.get("sleep_count", 0) + 1
                         run_insight = (status["sleep_count"] % 4 == 0)
-                        # Assign a new dict so SQLAlchemy detects the mutation
-                        fresh_robot.current_status = status
+                        fresh_robot.current_status = json.dumps(status)
                         await session.commit()
                         # Run the sleep cycle with real LLM
                         async with async_session() as cycle_session:

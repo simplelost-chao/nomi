@@ -41,11 +41,13 @@ class _FakeLLM:
 
 
 def test_check_evolution_rejects_unsupported_drift():
-    """One principle with confidence 0.9 but drift > 0.35 → evolution rejected.
+    """Mature robot (>= 2 total principles) with drift > 0.35 but only 1 backing
+    principle (confidence >= 0.5) → evolution rejected.
 
     Setup: robot has portrait summary '平静温和'; fake LLM returns '暴躁好斗'.
     embed maps these to orthogonal vectors → drift ≈ 1.0.
-    Only 1 backing principle → check_evolution must return False.
+    Robot has 2 principles total (mature), but only 1 has confidence >= 0.5
+    → coherence gate fires → check_evolution must return False.
     """
     async def scenario():
         engine = create_async_engine(
@@ -85,15 +87,28 @@ def test_check_evolution_rejects_unsupported_drift():
                     memory_layer="episodic",
                     created_at=datetime.utcnow(),
                 ))
-            # One principle memory (1 backing principle, need >= 2 to approve)
+            # Two principle memories total (mature robot), but only 1 has confidence >= 0.5
+            # → mature=True, backing_principles=1 < 2 → gate fires → rejected
             s.add(Memory(
                 id=uuid.uuid4(),
                 user_id=uid,
                 owner_type="robot",
                 owner_id=rid,
-                content="principle memory",
-                summary="core value",
+                content="principle memory high",
+                summary="core value high",
                 importance_score=0.9,
+                memory_layer="principle",
+                archived=False,
+                created_at=datetime.utcnow(),
+            ))
+            s.add(Memory(
+                id=uuid.uuid4(),
+                user_id=uid,
+                owner_type="robot",
+                owner_id=rid,
+                content="principle memory low",
+                summary="core value low",
+                importance_score=0.2,  # below 0.5 threshold → not a backing principle
                 memory_layer="principle",
                 archived=False,
                 created_at=datetime.utcnow(),
@@ -108,7 +123,7 @@ def test_check_evolution_rejects_unsupported_drift():
         return result
 
     result = asyncio.run(scenario())
-    # Drift > 0.35 with only 1 backing principle → should be rejected
+    # Mature robot, drift > 0.35, but only 1 backing principle (< 2) → rejected
     assert result is False, f"Expected False (rejected), got {result}"
 
 

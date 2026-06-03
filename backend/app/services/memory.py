@@ -39,6 +39,7 @@ class MemoryService:
         symbolic_tags: list[str] | None = None,
         related_robot_ids: list[uuid.UUID] | None = None,
         summary: str | None = None,
+        memory_layer: str = "episodic",
     ) -> Memory:
         embedding = await self.llm.embed(content)
 
@@ -55,6 +56,7 @@ class MemoryService:
             symbolic_tags=symbolic_tags or [],
             related_robot_ids=related_robot_ids or [],
             embedding=embedding,
+            memory_layer=memory_layer,
         )
         self.session.add(memory)
         await self.session.commit()

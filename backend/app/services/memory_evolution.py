@@ -438,24 +438,25 @@ async def check_evolution(session: AsyncSession, llm, robot: Robot) -> bool:
     else:
         drift = 0.0
 
-    if drift > 0.35:
-        # Suspicious jump — require at least 2 backing principles with confidence >= 0.5
-        backing_principles = sum(
-            1 for m in principle_memories if (m.importance_score or 0.0) >= 0.5
-        )
-        if backing_principles < 2:
-            print(
-                f"[memory_evolution] {robot.name}'s evolution rejected: "
-                f"drift={drift:.3f} > 0.35 but only {backing_principles} backing principle(s)."
-            )
-            return False
-
     # --- Snapshot history for rollback (before mutating) ---
     current_portrait = dict(robot.portrait or {})
     history = list(current_portrait.get("history", []))
     if old_summary:
         history.append({"summary": old_summary, "at": datetime.utcnow().isoformat()})
     history = history[-10:]  # keep only last 10
+
+    if drift > 0.35:
+        # Suspicious jump — only enforce coherence gate once robot has a principle base
+        mature = len(principle_memories) >= 2
+        backing_principles = sum(
+            1 for m in principle_memories if (m.importance_score or 0.0) >= 0.5
+        )
+        if mature and backing_principles < 2:
+            print(
+                f"[memory_evolution] {robot.name}'s evolution rejected: "
+                f"drift={drift:.3f} > 0.35 but only {backing_principles} backing principle(s)."
+            )
+            return False
 
     # Update robot — gradual evolution
     new_personality = portrait_data.get("personality")
