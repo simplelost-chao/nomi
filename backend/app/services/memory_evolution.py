@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Memory, Robot
-from app.services.memory_iteration import update_utility
+from app.services.memory_iteration import personality_drift, update_utility
 
 DEFAULT_USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 
@@ -354,24 +354,58 @@ async def check_evolution(session: AsyncSession, llm, robot: Robot) -> bool:
     if not should_evolve:
         return False
 
-    # Fetch all strong memories for portrait regeneration
-    strong_memories_result = await session.execute(
+    # --- Principle-driven input: fetch principle-layer memories first, then semantic ---
+    principles_result = await session.execute(
         select(Memory)
         .where(
             Memory.owner_id == robot.id,
             Memory.owner_type == "robot",
-            Memory.importance_score >= 0.2,
+            Memory.memory_layer == "principle",
+            Memory.archived == False,  # noqa: E712
         )
         .order_by(Memory.importance_score.desc())
-        .limit(50)
     )
-    strong_memories = list(strong_memories_result.scalars().all())
+    principle_memories = list(principles_result.scalars().all())
 
-    memories_text = "\n".join(
-        f"- [{m.memory_source or 'memory'}] {m.summary or m.content or ''}"
-        + (f" (重新诠释：{m.reinterpretation})" if m.reinterpretation else "")
-        for m in strong_memories
+    semantic_result = await session.execute(
+        select(Memory)
+        .where(
+            Memory.owner_id == robot.id,
+            Memory.owner_type == "robot",
+            Memory.memory_layer == "semantic",
+            Memory.archived == False,  # noqa: E712
+        )
+        .order_by(Memory.importance_score.desc())
+        .limit(5)
     )
+    semantic_memories = list(semantic_result.scalars().all())
+
+    if principle_memories or semantic_memories:
+        # Build memories_text from principles first, then top semantic
+        source_memories = principle_memories + semantic_memories
+        memories_text = "\n".join(
+            f"- [{m.memory_layer}] {m.summary or m.content or ''}"
+            + (f" (重新诠释：{m.reinterpretation})" if m.reinterpretation else "")
+            for m in source_memories
+        )
+    else:
+        # Fallback for early-life robots: top strong memories
+        strong_memories_result = await session.execute(
+            select(Memory)
+            .where(
+                Memory.owner_id == robot.id,
+                Memory.owner_type == "robot",
+                Memory.importance_score >= 0.2,
+            )
+            .order_by(Memory.importance_score.desc())
+            .limit(50)
+        )
+        strong_memories = list(strong_memories_result.scalars().all())
+        memories_text = "\n".join(
+            f"- [{m.memory_source or 'memory'}] {m.summary or m.content or ''}"
+            + (f" (重新诠释：{m.reinterpretation})" if m.reinterpretation else "")
+            for m in strong_memories
+        )
 
     previous_portrait = json.dumps(robot.portrait or {}, ensure_ascii=False)
 
@@ -389,17 +423,54 @@ async def check_evolution(session: AsyncSession, llm, robot: Robot) -> bool:
         print(f"[memory_evolution] Portrait evolution failed: {e}")
         return False
 
+    # --- Drift detection before applying ---
+    old_summary = (robot.portrait or {}).get("summary", "")
+    new_summary = portrait_data.get("portrait_summary", "")
+
+    if old_summary and new_summary:
+        try:
+            old_emb = await llm.embed(old_summary)
+            new_emb = await llm.embed(new_summary)
+            drift = personality_drift(old_emb, new_emb)
+        except Exception as e:
+            print(f"[memory_evolution] Drift detection failed: {e}")
+            drift = 0.0
+    else:
+        drift = 0.0
+
+    if drift > 0.35:
+        # Suspicious jump — require at least 2 backing principles with confidence >= 0.5
+        backing_principles = sum(
+            1 for m in principle_memories if (m.importance_score or 0.0) >= 0.5
+        )
+        if backing_principles < 2:
+            print(
+                f"[memory_evolution] {robot.name}'s evolution rejected: "
+                f"drift={drift:.3f} > 0.35 but only {backing_principles} backing principle(s)."
+            )
+            return False
+
+    # --- Snapshot history for rollback (before mutating) ---
+    current_portrait = dict(robot.portrait or {})
+    history = list(current_portrait.get("history", []))
+    if old_summary:
+        history.append({"summary": old_summary, "at": datetime.utcnow().isoformat()})
+    history = history[-10:]  # keep only last 10
+
     # Update robot — gradual evolution
     new_personality = portrait_data.get("personality")
     if new_personality and isinstance(new_personality, list):
         robot.personality = new_personality
 
-    # Merge into portrait
-    current_portrait = dict(robot.portrait or {})
-    current_portrait["summary"] = portrait_data.get("portrait_summary", "")
-    current_portrait["emotional_baseline"] = portrait_data.get("emotional_baseline", "")
-    current_portrait["last_evolved"] = datetime.utcnow().isoformat()
-    robot.portrait = current_portrait
+    # Build new portrait dict (reassigned entirely so SQLAlchemy detects the change)
+    new_portrait = dict(current_portrait)
+    new_portrait["summary"] = new_summary
+    new_portrait["emotional_baseline"] = portrait_data.get("emotional_baseline", "")
+    new_portrait["last_evolved"] = datetime.utcnow().isoformat()
+    new_portrait["history"] = history
+    if drift > 0.35:
+        new_portrait["last_drift"] = drift
+    robot.portrait = new_portrait
 
     await session.commit()
     print(f"[memory_evolution] {robot.name}'s personality evolved based on {len(new_memories)} new memories.")

@@ -151,3 +151,12 @@ def test_evict_lowest_confidence_caps_count():
     keep, evict = evict_lowest_confidence(ps, cap=3)
     assert {p.id for p in keep} == {0, 2, 4}
     assert {p.id for p in evict} == {1, 3}
+
+
+def test_personality_drift_and_dampen():
+    from app.services.memory_iteration import personality_drift, dampen_vector
+    a = [1.0, 0.0]; b = [0.0, 1.0]
+    assert personality_drift(a, a) < 0.01
+    assert personality_drift(a, b) > 0.9
+    d = dampen_vector(a, b, w=0.3)
+    assert d[0] > d[1]

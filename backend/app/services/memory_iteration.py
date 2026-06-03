@@ -119,6 +119,16 @@ def evict_lowest_confidence(principles: list, cap: int = 20) -> tuple[list, list
     return ordered[:cap], ordered[cap:]
 
 
+def personality_drift(old_emb: list[float], new_emb: list[float]) -> float:
+    """0 = identical, →1 = very different (1 - cosine)."""
+    return 1.0 - cosine_similarity(old_emb, new_emb)
+
+
+def dampen_vector(old_emb: list[float], new_emb: list[float], w: float = 0.3) -> list[float]:
+    """Take only a small step (fraction w) from old toward new."""
+    return [(1 - w) * o + w * n for o, n in zip(old_emb, new_emb)]
+
+
 def cluster_by_similarity(items: list, threshold: float = 0.92) -> list[list]:
     """Greedy single-pass clustering by cosine of each item's `.embedding`.
 
