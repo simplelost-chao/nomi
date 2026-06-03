@@ -100,6 +100,19 @@ def rerank_candidates(candidates: list, query_embedding: list[float], now: datet
     return [m for m, _ in scored[:limit]]
 
 
+LAYER_BOOST = {"principle": 0.25, "semantic": 0.1, "episodic": 0.0}
+
+
+def allocate_layer_budget(principles: int = 2, semantic: int = 2, episodic: int = 2) -> dict:
+    """Per-layer retrieval budget for prompt injection."""
+    return {"principle": principles, "semantic": semantic, "episodic": episodic}
+
+
+def apply_layer_boost(score: float, layer: str) -> float:
+    """Constant retrieval boost by layer (principles are near-always-on)."""
+    return score + LAYER_BOOST.get(layer or "episodic", 0.0)
+
+
 def cluster_by_similarity(items: list, threshold: float = 0.92) -> list[list]:
     """Greedy single-pass clustering by cosine of each item's `.embedding`.
 

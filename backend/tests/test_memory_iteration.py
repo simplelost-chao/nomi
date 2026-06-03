@@ -127,3 +127,15 @@ def test_rerank_respects_limit():
     now = datetime(2026, 6, 4)
     mems = [_Mem(str(i), [1.0, 0.0], 0.5, 0.5, now) for i in range(5)]
     assert len(rerank_candidates(mems, [1.0, 0.0], now, limit=3)) == 3
+
+
+def test_allocate_layer_budget_splits():
+    from app.services.memory_iteration import allocate_layer_budget
+    b = allocate_layer_budget(principles=2, semantic=2, episodic=2)
+    assert b == {"principle": 2, "semantic": 2, "episodic": 2}
+
+
+def test_principle_boost_lifts_score():
+    from app.services.memory_iteration import apply_layer_boost
+    assert apply_layer_boost(0.5, "principle") > apply_layer_boost(0.5, "episodic")
+    assert apply_layer_boost(0.5, "episodic") == 0.5

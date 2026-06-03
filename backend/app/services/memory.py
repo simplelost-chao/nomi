@@ -122,3 +122,68 @@ class MemoryService:
         await self.session.commit()
 
         return memories
+
+    async def search_memories_layered(
+        self,
+        query: str,
+        user_id: uuid.UUID,
+        owner_id: uuid.UUID,
+        budget: dict | None = None,
+    ) -> list[Memory]:
+        """Retrieve memories per layer using a per-layer budget dict."""
+        from app.services.memory_iteration import allocate_layer_budget
+        budget = budget or allocate_layer_budget()
+        out: list[Memory] = []
+        for layer, k in budget.items():
+            if k <= 0:
+                continue
+            out.extend(await self._search_layer(query, user_id, owner_id, layer, k))
+        return out
+
+    async def _search_layer(
+        self,
+        query: str,
+        user_id: uuid.UUID,
+        owner_id: uuid.UUID | None,
+        layer: str,
+        k: int,
+    ) -> list[Memory]:
+        """Retrieve up to k memories from a single memory_layer, reranked."""
+        from app.services.memory_iteration import rerank_candidates
+
+        query_embedding = await self.llm.embed(query)
+
+        if settings.is_sqlite:
+            # SQLite path: fetch all matching candidates in Python, then rerank
+            stmt = (
+                select(Memory)
+                .where(Memory.user_id == user_id)
+                .where(Memory.embedding.isnot(None))
+                .where(Memory.archived.is_(False))
+                .where(Memory.memory_layer == layer)
+            )
+            if owner_id:
+                stmt = stmt.where(Memory.owner_id == owner_id)
+            result = await self.session.execute(stmt)
+            candidates = [m for m in result.scalars().all() if m.embedding is not None]
+        else:
+            # Postgres path: use vector cosine_distance index for candidate pre-filter
+            candidate_k = max(k * 5, 20)
+            stmt = (
+                select(Memory)
+                .where(Memory.user_id == user_id)
+                .where(Memory.embedding.isnot(None))
+                .where(Memory.archived.is_(False))
+                .where(Memory.memory_layer == layer)
+            )
+            if owner_id:
+                stmt = stmt.where(Memory.owner_id == owner_id)
+            stmt = stmt.order_by(Memory.embedding.cosine_distance(query_embedding)).limit(candidate_k)
+            result = await self.session.execute(stmt)
+            candidates = list(result.scalars().all())
+
+        memories = rerank_candidates(candidates, query_embedding, datetime.utcnow(), k)
+        for memory in memories:
+            memory.last_accessed_at = datetime.utcnow()
+        await self.session.commit()
+        return memories
