@@ -1,11 +1,18 @@
 import asyncio
+import os
 import uuid
 
+import pytest
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.db.models import Base, User, Memory
 from app.services.memory_evolution import record_retrieval, record_usefulness
+
+pytestmark = pytest.mark.skipif(
+    "sqlite" not in os.environ.get("NOMI_DATABASE_URL", ""),
+    reason="requires NOMI_DATABASE_URL=sqlite+aiosqlite:///test.db",
+)
 
 
 def test_record_feedback_updates_scores():
