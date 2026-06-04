@@ -219,13 +219,18 @@ async def trigger_action(robot_id: str, action: str):
             if isinstance(personality, dict):
                 personality = list(personality.values())
 
-            prompt = f"""你是 {robot.name}，{robot.age or 0}岁。性格：{', '.join(str(p) for p in personality[:3])}
-核心愿望：{robot.core_desire or ''}
+            prompt = f"""你就是 {robot.name}，{robot.age or 0}岁，要用你自己的口吻和性格说话。
+你的性格：{', '.join(str(p) for p in personality[:4])}
+你现在的心愿/处境：{robot.core_desire or ''}
 
-最近的记忆：
+你脑海里浮现的一些过往片段：
 {mem_texts or '（暂无）'}
 
-基于这些记忆，写一段深刻的自我反思（50-80字，第一人称，真实感受，不要说废话）："""
+请用【你自己的声音、你这个年龄该有的样子】，写一小段此刻的内心想法（40-70字，第一人称）。
+要求：
+- 完全保持角色的语气和性格，绝不要写成大人式的、忧郁的、说教的反思
+- 就算想起以前难过的事，也要从你"现在"的视角看（你现在是被爱着的、安全的、有家的）
+- 真实、具体、有这个角色独有的味道，不要空泛感慨"""
 
             reflection = await llm.generate(messages=[{"role": "user", "content": prompt}])
             if reflection:

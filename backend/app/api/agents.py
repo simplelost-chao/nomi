@@ -544,6 +544,12 @@ async def agent_chat(
         reply = "\n".join(chinese_lines) if chinese_lines else raw_content.strip()
         reply_ja = "\n".join(japanese_lines)
 
+    # Strip leaked memory-reference tags like (M1) / (M1,M3) / （M1，M3） from the
+    # user-visible reply. _raw_content keeps them for the usefulness-feedback extractor.
+    _mtag = re.compile(r'[\(（]\s*[Mm]\d+(?:\s*[,，]\s*[Mm]\d+)*\s*[\)）]')
+    reply = _mtag.sub("", reply).strip()
+    reply_ja = _mtag.sub("", reply_ja).strip()
+
     # 6. Save messages to conversation
     if conversation_id:
         user_msg = Message(
