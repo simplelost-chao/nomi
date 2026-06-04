@@ -1014,7 +1014,8 @@ async def _sleep_cycle_loop():
             # Create one real LLM instance per loop iteration (shared across robots)
             # Use same construction as _heartbeat_coordinator for consistency
             try:
-                llm = DeepSeekLLM(model="deepseek-v4-pro")
+                # flash is cheap and validated sufficient for consolidation/insight quality
+                llm = DeepSeekLLM(model="deepseek-v4-flash")
             except Exception as e:
                 print(f"[heartbeat] Sleep cycle LLM creation failed: {e}; skipping LLM stages this iteration")
                 llm = None

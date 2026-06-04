@@ -45,7 +45,7 @@ def plan_dedup(memories: list, threshold: float = 0.92) -> list[tuple]:
     return merges
 
 
-def plan_related_clusters(memories: list, threshold: float = 0.75, min_size: int = 3) -> list[list]:
+def plan_related_clusters(memories: list, threshold: float = 0.82, min_size: int = 3) -> list[list]:
     """Clusters of RELATED (not just duplicate) memories worth consolidating into one semantic memory."""
     return [c for c in cluster_by_similarity(memories, threshold) if len(c) >= min_size]
 
@@ -90,7 +90,8 @@ async def run_sleep_cycle(session: AsyncSession, llm, robot: Robot,
                      and m.consolidated_into is None]
         from app.services.memory import MemoryService
         svc = MemoryService(session=session, llm=llm)
-        for cluster in plan_related_clusters(episodics, threshold=0.75, min_size=3):
+        # 0.82 tuned from live validation: 0.75 over-clustered (~92% of memories into one blob)
+        for cluster in plan_related_clusters(episodics, threshold=0.82, min_size=3):
             cluster_text = "\n".join(f"- {m.summary or m.content or ''}" for m in cluster)
             try:
                 summary = (await llm.generate(
