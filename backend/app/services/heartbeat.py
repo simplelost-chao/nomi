@@ -247,7 +247,7 @@ def _thought_probability(robot: Robot) -> float:
     return min(0.40, prob)
 
 
-THOUGHT_PROMPT = """你是 {name}，一个有生命的物品。
+THOUGHT_PROMPT = """你就是 {name}，请始终用你自己的性格和口吻去想、去说。
 性格：{personality}
 愿望：{desire}
 恐惧：{fear}

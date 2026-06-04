@@ -85,11 +85,13 @@ async def main():
     before = await snapshot(rid)
     print(f"基线:普通记忆 {len(before['mem_ids'])} | 技能 {len(before['skills'])} | 活动日志 {len(before['act_ids'])}\n")
 
-    # ── 阶段一:多轮对话 ──────────────────────────────────────────────
+    # ── 阶段一:多轮对话(带 conversation_id,保持上下文连续) ──────────
     print("── 阶段一:对话 ──")
+    conv = await asyncio.to_thread(_post, "/api/conversations", {}, 20.0)
+    cid = conv.get("id", "")
     for i in range(n_chats):
         msg = CHAT_MESSAGES[i % len(CHAT_MESSAGES)]
-        res = await asyncio.to_thread(_post, "/api/agents/chat", {"robot_id": str(rid), "message": msg}, 120.0)
+        res = await asyncio.to_thread(_post, "/api/agents/chat", {"robot_id": str(rid), "message": msg, "conversation_id": cid}, 120.0)
         reply = res.get("reply") or res.get("_error") or res.get("_http") or "(无回复)"
         print(f"  你: {msg}")
         print(f"  {name}: {str(reply)[:90]}")

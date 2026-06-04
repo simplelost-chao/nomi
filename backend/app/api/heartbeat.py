@@ -98,6 +98,7 @@ async def _generate_thought(robot, llm) -> str | None:
         fear=robot.core_fear or "",
         drives_desc=drives_desc,
         context="",
+        current_conversation="",
         trigger=trigger,
         recent_thoughts="（手动触发）",
         awake_minutes=0,
