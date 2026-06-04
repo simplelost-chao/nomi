@@ -204,6 +204,7 @@ async def regenerate_memories(
     total_words = 0
     memory_count = 0
 
+    failed_batches = 0
     for batch_idx, (start_age, end_age) in enumerate(batches):
         prev_tail = all_memories[-3:] if all_memories else None
 
@@ -222,19 +223,30 @@ async def regenerate_memories(
             life_theme=life_theme,
         )
 
-        batch_result = await llm.generate_structured(
-            messages=[{"role": "user", "content": usr_msg}],
-            system_prompt=sys_msg,
-        )
+        # Per-batch fault isolation: one bad LLM response (non-JSON, etc.) must
+        # not abort the whole regeneration — skip it and keep the rest.
+        try:
+            batch_result = await llm.generate_structured(
+                messages=[{"role": "user", "content": usr_msg}],
+                system_prompt=sys_msg,
+            )
+            if not isinstance(batch_result, dict):
+                raise ValueError(f"non-dict batch result: {type(batch_result).__name__}")
+        except Exception as e:
+            failed_batches += 1
+            print(f"[regenerate_memories] batch {batch_idx} (age {start_age}-{end_age}) failed: {e}")
+            continue
 
         if batch_idx == 0:
             life_theme = batch_result.get("life_theme", "")
 
         ongoing_state = batch_result.get("ongoing_state")
-        batch_memories = batch_result.get("memories", [])
+        batch_memories = batch_result.get("memories", []) or []
 
         for mem_data in batch_memories:
-            content = mem_data.get("content", "")
+            if not isinstance(mem_data, dict):
+                continue
+            content = mem_data.get("content", "") or ""
             importance = mem_data.get("importance", 0.5)
             approx_age = mem_data.get("approximate_age", start_age)
             years_ago = max(0, robot_age - approx_age)
@@ -243,10 +255,17 @@ async def regenerate_memories(
             word_count = len(content)
             total_words += word_count
 
+            # Always populate memory_summary (some models fill content but no
+            # explicit summary field) so downstream display/prompts are not empty.
+            summary = (mem_data.get("summary") or "").strip()
+            if not summary and content:
+                summary = (content[:55] + "…") if len(content) > 55 else content
+
             mem = YearlyMemory(
                 robot_id=robot.id, age=approx_age,
                 memory_title=mem_data.get("title", ""),
                 memory_content=content,
+                memory_summary=summary,
                 emotional_impact={"core": mem_data.get("emotional_core", "")},
                 memory_type=mem_data.get("memory_type", "fragment"),
                 importance=importance, memory_strength=strength,
@@ -262,9 +281,18 @@ async def regenerate_memories(
             })
             memory_count += 1
 
-        # Save relationships each batch (in case later batches fail)
-        if ongoing_state and ongoing_state.get("relationships"):
-            robot.relationships_snapshot = ongoing_state["relationships"]
-        await session.commit()
+        # Commit per batch so a later failure never loses earlier batches.
+        try:
+            if ongoing_state and ongoing_state.get("relationships"):
+                robot.relationships_snapshot = ongoing_state["relationships"]
+            await session.commit()
+        except Exception as e:
+            await session.rollback()
+            print(f"[regenerate_memories] batch {batch_idx} commit failed: {e}")
 
-    return {"moment_count": memory_count, "total_words": total_words, "model": model}
+    return {
+        "moment_count": memory_count,
+        "total_words": total_words,
+        "model": model,
+        "failed_batches": failed_batches,
+    }
