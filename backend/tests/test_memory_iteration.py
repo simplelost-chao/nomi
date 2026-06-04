@@ -160,3 +160,11 @@ def test_personality_drift_and_dampen():
     assert personality_drift(a, b) > 0.9
     d = dampen_vector(a, b, w=0.3)
     assert d[0] > d[1]
+
+
+def test_archive_budget_caps_and_floors():
+    from app.services.memory_iteration import archive_budget
+    assert archive_budget(100) == 30      # 30% cap
+    assert archive_budget(77) == 23       # 冯宝宝 case: 63 merges -> 23 max per cycle
+    assert archive_budget(10) == 5        # floor
+    assert archive_budget(0) == 5         # floor

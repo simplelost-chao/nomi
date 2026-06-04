@@ -11,7 +11,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import ActivityLog, Memory, Robot
-from app.services.memory_iteration import ForgetCandidate, cluster_by_similarity, should_forget
+from app.services.memory_iteration import (
+    ForgetCandidate,
+    archive_budget,
+    cluster_by_similarity,
+    should_forget,
+)
 
 _CONSOLIDATE_PROMPT = """你是记忆整理助手。把下面这一组相关的零碎记忆，概括成一条更高层的「印象/认识」（第三人称，1-2句，抓住共性，不要罗列）。
 
@@ -71,9 +76,14 @@ async def run_sleep_cycle(session: AsyncSession, llm, robot: Robot,
     )
     mems = [m for m in result.scalars().all() if m.embedding is not None]
 
+    # Safety rail: never merge/archive more than ~30% of a robot's memories in one
+    # cycle. Protects pathologically self-similar robots from being wiped at once;
+    # convergence happens over several cycles instead.
+    budget = archive_budget(len(mems))
+
     # ── Stage 1: dedup ───────────────────────────────────────────────────────
     by_id = {m.id: m for m in mems}
-    merges = plan_dedup(mems, dedup_threshold)
+    merges = plan_dedup(mems, dedup_threshold)[:budget]
     for loser_id, winner_id in merges:
         loser, winner = by_id.get(loser_id), by_id.get(winner_id)
         if loser is None or winner is None:
@@ -116,6 +126,8 @@ async def run_sleep_cycle(session: AsyncSession, llm, robot: Robot,
     # ── Stage 3: safe-forget ─────────────────────────────────────────────────
     forgotten = 0
     for m in mems:
+        if forgotten >= budget:  # safety rail: cap archives per cycle
+            break
         cand = ForgetCandidate(
             consolidated_into=m.consolidated_into,
             utility_score=m.utility_score or 0.0,

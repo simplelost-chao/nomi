@@ -119,6 +119,14 @@ def evict_lowest_confidence(principles: list, cap: int = 20) -> tuple[list, list
     return ordered[:cap], ordered[cap:]
 
 
+def archive_budget(scanned: int, max_frac: float = 0.30, floor: int = 5) -> int:
+    """Max memories one sleep cycle may merge/archive — a safety rail so a single
+    cycle never wipes out a robot with pathologically self-similar memories.
+    Converges over multiple cycles instead of nuking everything at once.
+    """
+    return max(floor, int(max_frac * scanned))
+
+
 def personality_drift(old_emb: list[float], new_emb: list[float]) -> float:
     """0 = identical, →1 = very different (1 - cosine)."""
     return 1.0 - cosine_similarity(old_emb, new_emb)
