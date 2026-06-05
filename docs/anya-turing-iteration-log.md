@@ -117,3 +117,13 @@
 # 跨角色结论
 - 6 项通用拟人度修复 = 角色无关,自动惠及所有角色(Anya/Frieren/Nezuko 回归全过)。
 - 角色独特声音由各自 profile(尤其 speaking_style)决定;**空的 speaking_style 会导致人设不保真**(祢豆子案例)→ 建议给所有角色补全 speaking_style。
+
+---
+# speaking_style 全角色审计(2026-06-05)
+
+15 个角色:
+- ✅ **8 个真角色(有记忆)全部有 speaking_style**,无祢豆子式隐患:Anya/フリーレン/粉怪儿/补丁/裂釉/小翼零/冯宝宝/禰豆子(已补)。
+- 🔶 2 个半成品:フリーレン（測試版）(有style,0记忆,测试副本)、藤袴（椿）(有style,origin空)。
+- ⬜ **5 个纯空壳**:椿/火火/长离/Alexia/フリーレン（Replica)—— personality=["虚拟角色"]占位、origin空、speaking_style空、0记忆。是为 Live2D 模型自动建的未配置占位角色。
+
+**结论**:活跃使用的角色没有 speaking_style 缺失风险(祢豆子是唯一一个,已修)。5 个空壳缺的不只是 speaking_style,是整个人设——单补 speaking_style 无意义,需要完整建角(personality/origin/记忆/style),同祢豆子补背景的流程。
