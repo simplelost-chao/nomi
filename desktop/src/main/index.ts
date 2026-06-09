@@ -1,4 +1,4 @@
-import { app, BrowserWindow, globalShortcut, screen, systemPreferences } from "electron";
+import { app, BrowserWindow, globalShortcut, screen, systemPreferences, session } from "electron";
 import path from "path";
 import { setupTray } from "./tray";
 import { startBackend, stopBackend, isBackendReady } from "./backend";
@@ -67,6 +67,13 @@ export function getMainWindow() {
 }
 
 app.whenReady().then(async () => {
+  // Grant the renderer's permission requests (esp. getUserMedia / microphone for the
+  // press-to-talk voice button). Without this, Electron denies media in the renderer
+  // even when the OS-level mic is granted (NotAllowedError). This is a local, trusted
+  // app loading its own bundled content, so granting all renderer requests is safe.
+  session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(true));
+  session.defaultSession.setPermissionCheckHandler(() => true);
+
   createWindow();
   setupIPC();
   setupTray();
