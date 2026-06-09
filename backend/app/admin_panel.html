@@ -215,6 +215,9 @@
       <button class="detail-tab" onclick="switchDetailTab('images')">形象</button>
       <button class="detail-tab" onclick="switchDetailTab('voice')">语音</button>
       <button class="detail-tab" onclick="switchDetailTab('memories')">记忆</button>
+      <button class="detail-tab" onclick="switchDetailTab('memorybank')">记忆库</button>
+      <button class="detail-tab" onclick="switchDetailTab('skills')">技能</button>
+      <button class="detail-tab" onclick="switchDetailTab('activity')">活动</button>
     </div>
 
     <!-- Info Tab -->
@@ -228,6 +231,15 @@
 
     <!-- Memories Tab -->
     <div id="tab-memories" class="tab-content"></div>
+
+    <!-- Memory Bank Tab (conversational memory pyramid) -->
+    <div id="tab-memorybank" class="tab-content"></div>
+
+    <!-- Skills Tab -->
+    <div id="tab-skills" class="tab-content"></div>
+
+    <!-- Activity Tab -->
+    <div id="tab-activity" class="tab-content"></div>
   </div>
 </div>
 
@@ -358,6 +370,9 @@ function showDetail(charId) {
   loadDetailImages(c);
   loadDetailVoice(c);
   loadDetailMemories(c.id);
+  loadDetailMemoryBank(c.id);
+  loadDetailSkills(c.id);
+  loadDetailActivity(c.id);
 }
 
 function switchDetailTab(tab) {
@@ -365,7 +380,7 @@ function switchDetailTab(tab) {
   document.querySelectorAll('.tab-content').forEach(p => p.classList.remove('active'));
 
   const tabs = document.querySelectorAll('.detail-tab');
-  const map = ['info','images','voice','memories'];
+  const map = ['info','images','voice','memories','memorybank','skills','activity'];
   const idx = map.indexOf(tab);
   if (idx >= 0) tabs[idx].classList.add('active');
   document.getElementById('tab-' + tab).classList.add('active');
@@ -871,6 +886,90 @@ async function loadDetailMemories(charId) {
     }
     html += '</div>';
     container.innerHTML = actionBar + html;
+  } catch(e) {
+    container.innerHTML = '<p class="error">加载失败: ' + e.message + '</p>';
+  }
+}
+
+// ===== Memory Bank (conversational memory pyramid: principle/semantic/episodic) =====
+async function loadDetailMemoryBank(charId) {
+  const container = document.getElementById('tab-memorybank');
+  container.innerHTML = '<p class="loading">加载中...</p>';
+  try {
+    const mems = await fetchJSON(window.location.origin + '/api/robots/' + charId + '/memories');
+    if (!mems || mems.length === 0) {
+      container.innerHTML = '<p style="color:#888;">暂无对话记忆。和角色聊天后会自动沉淀；做梦时整合成更高层。</p>';
+      return;
+    }
+    const layers = [
+      ['principle', '🌟 原则 / 洞见', '从经历提炼的可泛化规律'],
+      ['semantic',  '🧩 语义 / 印象', '由多条情景整合的认识'],
+      ['episodic',  '💬 情景', '单次对话 / 想法'],
+    ];
+    let html = '<p style="color:#888; font-size:12px; margin-bottom:16px;">对话沉淀的记忆 · 越用越精（共 ' + mems.length + ' 条）</p><div class="memory-timeline">';
+    for (const [layer, label, desc] of layers) {
+      const items = mems.filter(m => m.layer === layer);
+      if (items.length === 0) continue;
+      html += '<div class="memory-group"><div class="memory-group-label">' + label + ' · ' + items.length + ' 条</div>'
+        + '<div style="font-size:11px; color:#666; margin:-4px 0 10px 0;">' + desc + '</div>';
+      html += items.map(m => {
+        const imp = Math.round((m.importance || 0) * 100);
+        const uti = Math.round((m.utility || 0) * 100);
+        return '<div class="memory-item expanded" style="cursor:default;">'
+          + '<div class="mem-content" style="display:block; border:none; margin:0; padding:0; color:#c8c8e0;">' + esc(m.content || '') + '</div>'
+          + '<div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:8px; font-size:10px; color:#7a7a9a;">'
+          + '<span>重要度 ' + imp + '%</span>'
+          + '<span>有用度 ' + uti + '%</span>'
+          + '<span>调取 ' + (m.retrieved || 0) + ' · 真用 ' + (m.useful || 0) + '</span>'
+          + (m.type ? '<span style="padding:1px 6px; background:#6366f122; border-radius:4px;">' + esc(m.type) + '</span>' : '')
+          + '</div></div>';
+      }).join('');
+      html += '</div>';
+    }
+    container.innerHTML = html + '</div>';
+  } catch(e) {
+    container.innerHTML = '<p class="error">加载失败: ' + e.message + '</p>';
+  }
+}
+
+// ===== Skills =====
+async function loadDetailSkills(charId) {
+  const container = document.getElementById('tab-skills');
+  container.innerHTML = '<p class="loading">加载中...</p>';
+  try {
+    const skills = await fetchJSON(window.location.origin + '/api/robots/' + charId + '/skills');
+    if (!skills || skills.length === 0) {
+      container.innerHTML = '<p style="color:#888;">还没有习得任何技能。深度反思后可能触发技能觉醒。</p>';
+      return;
+    }
+    container.innerHTML = skills.map(s =>
+      '<div class="memory-item expanded" style="cursor:default;">'
+      + '<div class="mem-header"><span class="mem-title">✨ ' + esc(s.name || '') + '</span>'
+      + (s.skill_type ? '<span class="mem-badge" style="background:#6366f122; color:#a0a0ff;">' + esc(s.skill_type) + '</span>' : '')
+      + '<span style="font-size:10px; color:#7a7a9a;">用了 ' + (s.usage_count || 0) + ' 次</span></div>'
+      + (s.description ? '<div class="mem-content" style="display:block; border:none; margin-top:8px; padding:0; color:#a0a0c0;">' + esc(s.description) + '</div>' : '')
+      + '</div>'
+    ).join('');
+  } catch(e) {
+    container.innerHTML = '<p class="error">加载失败: ' + e.message + '</p>';
+  }
+}
+
+// ===== Activity =====
+async function loadDetailActivity(charId) {
+  const container = document.getElementById('tab-activity');
+  container.innerHTML = '<p class="loading">加载中...</p>';
+  try {
+    const data = await fetchJSON(window.location.origin + '/api/robots/' + charId + '/activity?limit=50&offset=0');
+    const items = (data && data.items) || [];
+    if (items.length === 0) { container.innerHTML = '<p style="color:#888;">暂无活动记录。</p>'; return; }
+    const icon = {thought:'💭', speak:'🗣️', chat:'💬', search:'🔍', learn:'📖', skill_acquired:'✨', reflect:'🪞', evolve:'🌱', sleep:'😴'};
+    container.innerHTML = '<div class="memory-timeline">' + items.map(a =>
+      '<div class="memory-item expanded" style="cursor:default;">'
+      + '<div class="mem-header"><span class="mem-title">' + (icon[a.event_type] || '·') + ' ' + esc(a.content || '') + '</span>'
+      + '<span style="font-size:10px; color:#7a7a9a;">' + (a.created_at ? new Date(a.created_at).toLocaleString('zh-CN', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : '') + '</span></div>'
+      + '</div>'
+    ).join('') + '</div>';
   } catch(e) {
     container.innerHTML = '<p class="error">加载失败: ' + e.message + '</p>';
   }
