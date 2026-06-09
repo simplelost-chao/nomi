@@ -548,6 +548,35 @@ async def get_skills(robot_id: uuid.UUID, session: AsyncSession = Depends(get_se
     ]
 
 
+@router.get("/{robot_id}/memories")
+async def get_memories(robot_id: uuid.UUID, session: AsyncSession = Depends(get_session)):
+    """Get a robot's conversational memories (the self-iterating memory pyramid:
+    principle / semantic / episodic), with utility & retrieval signals."""
+    from app.db.models import Memory
+    result = await session.execute(
+        select(Memory)
+        .where(Memory.owner_id == robot_id)
+        .where(Memory.archived.is_(False))
+        .order_by(Memory.importance_score.desc().nullslast())
+    )
+    mems = list(result.scalars().all())
+    return [
+        {
+            "id": str(m.id),
+            "layer": m.memory_layer or "episodic",
+            "type": m.memory_type,
+            "content": (m.summary or m.content or "")[:300],
+            "importance": round(m.importance_score or 0.0, 2),
+            "utility": round(m.utility_score or 0.0, 2),
+            "retrieved": m.retrieved_count or 0,
+            "useful": m.useful_count or 0,
+            "source": m.memory_source,
+            "created_at": m.created_at.isoformat() if m.created_at else None,
+        }
+        for m in mems
+    ]
+
+
 @router.get("", response_model=list[RobotOut])
 async def list_robots(desktop: bool | None = None, session: AsyncSession = Depends(get_session)):
     robots = await RobotService(session=session, llm=get_llm()).get_robots(DEFAULT_USER_ID)

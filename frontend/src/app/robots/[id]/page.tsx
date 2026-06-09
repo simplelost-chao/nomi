@@ -54,13 +54,15 @@ export default function RobotDetailPage() {
   const [robot, setRobot] = useState<RobotDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"profile" | "memories" | "relationships" | "activity" | "skills">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "memories" | "relationships" | "activity" | "skills" | "memorybank">("profile");
   type Activity = { id: string; event_type: string; content: string; detail: Record<string, unknown> | null; created_at: string };
   const [activities, setActivities] = useState<Activity[]>([]);
   const [activityTotal, setActivityTotal] = useState(0);
   const [activityPage, setActivityPage] = useState(0);
   const ACTIVITY_PAGE_SIZE = 20;
   const [skills, setSkills] = useState<{ id: string; name: string; description: string | null; trigger_keywords: string[]; skill_type: string | null; usage_count: number; acquired_at: string | null }[]>([]);
+  type Mem = { id: string; layer: string; type: string | null; content: string; importance: number; utility: number; retrieved: number; useful: number; source: string | null; created_at: string | null };
+  const [memories, setMemories] = useState<Mem[]>([]);
   const [voiceRegenState, setVoiceRegenState] = useState<"idle" | "confirm" | "loading" | "done">("idle");
   const [voiceRegenFeel, setVoiceRegenFeel] = useState<string>("");
   const [triggerState, setTriggerState] = useState<Record<string, "idle" | "loading" | "done" | "error">>({});
@@ -94,6 +96,13 @@ export default function RobotDetailPage() {
     fetch(`/api/robots/${params.id}/skills`)
       .then((r) => r.json())
       .then(setSkills)
+      .catch(console.error);
+  };
+
+  const loadMemories = () => {
+    fetch(`/api/robots/${params.id}/memories`)
+      .then((r) => r.json())
+      .then((d) => setMemories(Array.isArray(d) ? d : []))
       .catch(console.error);
   };
 
@@ -317,10 +326,10 @@ export default function RobotDetailPage() {
 
       {/* Tab bar */}
       <div className="flex gap-1 rounded-full bg-nomi-warm-gray/10 p-1">
-        {([["profile", "画像"], ["memories", "记忆"], ["relationships", "关系"], ["skills", "技能"], ["activity", "活动"]] as const).map(([key, label]) => (
+        {([["profile", "画像"], ["memories", "记忆"], ["memorybank", "记忆库"], ["relationships", "关系"], ["skills", "技能"], ["activity", "活动"]] as const).map(([key, label]) => (
           <button
             key={key}
-            onClick={() => { setActiveTab(key); if (key === "activity") { setActivityPage(0); loadActivities(0); } if (key === "skills") loadSkills(); }}
+            onClick={() => { setActiveTab(key); if (key === "activity") { setActivityPage(0); loadActivities(0); } if (key === "skills") loadSkills(); if (key === "memorybank") loadMemories(); }}
             className={`flex-1 rounded-full py-1.5 text-center text-[12px] font-medium transition-all ${activeTab === key ? "bg-white shadow-sm text-nomi-charcoal" : "text-nomi-charcoal-muted"}`}
           >
             {label}
@@ -607,6 +616,54 @@ export default function RobotDetailPage() {
                         习得于 {new Date(s.acquired_at).toLocaleString("zh-CN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                       </p>
                     )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Memory bank tab — the self-iterating memory pyramid */}
+      {activeTab === "memorybank" && (
+        <div className="glass shadow-nomi rounded-[20px] p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <span className="text-[10px] text-nomi-charcoal-muted">对话沉淀的记忆 · 越用越精</span>
+            <button onClick={loadMemories} className="text-[10px] text-nomi-charcoal-muted active:text-nomi-charcoal">🔄 刷新</button>
+          </div>
+          {memories.length === 0 ? (
+            <div className="py-8 text-center">
+              <p className="text-[12px] text-nomi-charcoal-muted">还没有对话记忆</p>
+              <p className="mt-1 text-[11px] text-nomi-charcoal-muted opacity-60">和她聊天后会自动沉淀；做梦时整合成更高层</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {([
+                ["principle", "原则 / 洞见", "🌟", "从经历提炼的可泛化规律"],
+                ["semantic", "语义 / 印象", "🧩", "由多条情景整合的认识"],
+                ["episodic", "情景", "💬", "单次对话 / 想法"],
+              ] as const).map(([layer, label, icon, desc]) => {
+                const items = memories.filter((m) => m.layer === layer);
+                if (items.length === 0) return null;
+                return (
+                  <div key={layer}>
+                    <div className="mb-2 flex items-baseline gap-2">
+                      <span className="text-[13px] font-semibold text-nomi-charcoal">{icon} {label}</span>
+                      <span className="text-[10px] text-nomi-charcoal-muted">{items.length} 条 · {desc}</span>
+                    </div>
+                    <div className="space-y-2">
+                      {items.map((m) => (
+                        <div key={m.id} className="rounded-[12px] border border-violet-100 bg-violet-50/30 p-2.5">
+                          <p className="text-[11px] text-nomi-charcoal-soft leading-relaxed">{m.content}</p>
+                          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[9px] text-nomi-charcoal-muted">
+                            <span>重要度 {Math.round(m.importance * 100)}%</span>
+                            <span>有用度 {Math.round(m.utility * 100)}%</span>
+                            <span>调取 {m.retrieved} · 真用 {m.useful}</span>
+                            {m.type && <span className="rounded-full bg-white/70 px-1.5 py-0.5 border border-violet-100">{m.type}</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 );
               })}
