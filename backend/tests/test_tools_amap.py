@@ -87,3 +87,67 @@ async def test_weather_amap_business_error(monkeypatch):
     result = await amap.weather_tool.execute({"city": "北京"})
     assert result.ok is False
     assert "INVALID_USER_KEY" in result.error
+
+
+POI_OK = {
+    "status": "1",
+    "pois": [
+        {"name": "海底捞(王府井店)", "address": "王府井大街88号", "biz_ext": {"rating": "4.8"}},
+        {"name": "小龙坎火锅", "address": "东直门内大街277号", "biz_ext": {"rating": "4.5"}},
+    ],
+}
+
+
+@pytest.mark.asyncio
+async def test_food_search_success(monkeypatch):
+    async def fake_get(path, params):
+        assert path == "/place/text"
+        assert params["keywords"] == "火锅"
+        assert params["city"] == "北京"
+        return POI_OK
+
+    monkeypatch.setattr(amap, "_amap_get", fake_get)
+    result = await amap.food_search_tool.execute({"keyword": "火锅", "city": "北京"})
+    assert result.ok is True
+    assert "海底捞" in result.summary
+    assert "4.8" in result.summary
+
+
+@pytest.mark.asyncio
+async def test_food_search_empty(monkeypatch):
+    async def fake_get(path, params):
+        return {"status": "1", "pois": []}
+
+    monkeypatch.setattr(amap, "_amap_get", fake_get)
+    result = await amap.food_search_tool.execute({"keyword": "火星菜", "city": "北京"})
+    assert result.ok is False
+
+
+@pytest.mark.asyncio
+async def test_route_plan_success(monkeypatch):
+    async def fake_get(path, params):
+        if path == "/geocode/geo":
+            return {"geocodes": [{"location": "116.40,39.90"}]}
+        if path == "/direction/driving":
+            return {"route": {"paths": [{"distance": "15000", "duration": "1800"}]}}
+        raise AssertionError(path)
+
+    monkeypatch.setattr(amap, "_amap_get", fake_get)
+    result = await amap.route_plan_tool.execute(
+        {"origin": "国贸", "destination": "西二旗", "city": "北京"}
+    )
+    assert result.ok is True
+    assert "15.0 公里" in result.summary
+    assert "30 分钟" in result.summary
+
+
+@pytest.mark.asyncio
+async def test_route_plan_geocode_fail(monkeypatch):
+    async def fake_get(path, params):
+        return {"geocodes": []}
+
+    monkeypatch.setattr(amap, "_amap_get", fake_get)
+    result = await amap.route_plan_tool.execute(
+        {"origin": "不存在的地方", "destination": "西二旗", "city": "北京"}
+    )
+    assert result.ok is False
