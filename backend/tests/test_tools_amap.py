@@ -74,3 +74,16 @@ async def test_weather_no_api_key(monkeypatch):
     result = await amap.weather_tool.execute({"city": "北京"})
     assert result.ok is False
     assert "Key" in result.error
+
+
+@pytest.mark.asyncio
+async def test_weather_amap_business_error(monkeypatch):
+    """amap 业务错误（HTTP 200 + status=0）应给出真实错误，而不是"找不到城市"。"""
+
+    async def fake_get(path, params):
+        raise RuntimeError("amap error 10001: INVALID_USER_KEY")
+
+    monkeypatch.setattr(amap, "_amap_get", fake_get)
+    result = await amap.weather_tool.execute({"city": "北京"})
+    assert result.ok is False
+    assert "INVALID_USER_KEY" in result.error

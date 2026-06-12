@@ -14,7 +14,11 @@ async def _amap_get(path: str, params: dict) -> dict:
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.get(f"{_AMAP_BASE}{path}", params=params)
         resp.raise_for_status()
-        return resp.json()
+        data = resp.json()
+        # 高德业务错误返回 HTTP 200 + status=0（如无效 Key、配额耗尽），必须显式抛出
+        if data.get("status") == "0":
+            raise RuntimeError(f"amap error {data.get('infocode')}: {data.get('info')}")
+        return data
 
 
 async def _resolve_adcode(city: str) -> str | None:
