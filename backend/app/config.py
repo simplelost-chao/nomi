@@ -1,4 +1,9 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings
+
+# 仓库根目录的 .env（backend/app/config.py 上溯三级）。进程环境变量优先于该文件。
+_ENV_FILE = Path(__file__).resolve().parent.parent.parent / ".env"
 
 
 class Settings(BaseSettings):
@@ -14,7 +19,12 @@ class Settings(BaseSettings):
     embedding_dimensions: int = 768
     cors_origins: list[str] = ["http://localhost:3100", "https://nomi.zhuchao.life", "https://nomi-api.zhuchao.life"]
 
-    model_config = {"env_prefix": "NOMI_"}
+    model_config = {
+        "env_prefix": "NOMI_",
+        "env_file": str(_ENV_FILE),
+        "env_file_encoding": "utf-8",
+        "extra": "ignore",
+    }
 
     @property
     def is_sqlite(self) -> bool:
