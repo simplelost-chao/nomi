@@ -97,6 +97,8 @@ import asyncio
 import random
 
 REMINDER_CHECK_INTERVAL = 30  # 秒
+_REFIRE_GUARD_SECONDS = 600  # advance 落库失败时的内存防重发窗口
+_recently_fired: dict[str, datetime] = {}  # reminder_id -> fired_at (utc)
 
 
 def _make_flash_llm():
@@ -160,6 +162,11 @@ async def fire_reminder(session: AsyncSession, reminder: Reminder, now_utc: date
         "content": content,
         "target": None,
     })
+    _recently_fired[str(reminder.id)] = now_utc
+    if len(_recently_fired) > 200:
+        cutoff = now_utc - timedelta(seconds=_REFIRE_GUARD_SECONDS)
+        for k in [k for k, v in _recently_fired.items() if v < cutoff]:
+            _recently_fired.pop(k, None)
     try:
         if robot:
             await _heartbeat_save(robot.id, robot_name, content)
@@ -178,10 +185,17 @@ async def reminders_loop() -> None:
             now = datetime.utcnow()
             async with async_session() as session:
                 for reminder in await find_due(session, now):
+                    fired_at = _recently_fired.get(str(reminder.id))
+                    if fired_at and (now - fired_at).total_seconds() < _REFIRE_GUARD_SECONDS:
+                        continue  # 已触发但 advance 落库失败过：窗口内不重发
                     try:
                         await fire_reminder(session, reminder, now)
                     except Exception as e:
                         print(f"[reminders] Fire failed for {reminder.title}: {e}")
+                        try:
+                            await session.rollback()
+                        except Exception:
+                            pass
         except asyncio.CancelledError:
             break
         except Exception as e:

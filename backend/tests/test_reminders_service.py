@@ -147,3 +147,34 @@ async def test_fire_reminder_llm_failure_uses_fallback(session, monkeypatch):
     await svc.fire_reminder(session, r, datetime(2026, 6, 13, 0, 1))
     assert len(emitted) == 1
     assert "吃药" in emitted[0]["content"]  # 兜底文案必含提醒内容
+
+
+@pytest.mark.asyncio
+async def test_refire_guard_blocks_within_window(session, monkeypatch):
+    from types import SimpleNamespace
+
+    emitted = []
+
+    async def fake_emit(event):
+        emitted.append(event)
+
+    async def fake_save(robot_id, robot_name, content):
+        pass
+
+    async def fake_pick(s):
+        return SimpleNamespace(id="r1", name="小诺", personality=[])
+
+    class FakeLLM:
+        async def generate(self, messages, system_prompt="", temperature=0.7):
+            return "提醒啦"
+
+    monkeypatch.setattr(svc, "_heartbeat_emit", fake_emit)
+    monkeypatch.setattr(svc, "_heartbeat_save", fake_save)
+    monkeypatch.setattr(svc, "_pick_robot", fake_pick)
+    monkeypatch.setattr(svc, "_make_flash_llm", lambda: FakeLLM())
+    svc._recently_fired.clear()
+
+    now = datetime(2026, 6, 13, 0, 1)
+    r = await svc.create_reminder(session, "起床", "2026-06-13 08:00", "once")
+    await svc.fire_reminder(session, r, now)
+    assert str(r.id) in svc._recently_fired  # emit 后立即登记，advance 失败也有记录

@@ -62,6 +62,9 @@ async def lifespan(app: FastAPI):
     reminder_task = asyncio.create_task(reminders_loop())
     yield
     reminder_task.cancel()
+    from contextlib import suppress
+    with suppress(asyncio.CancelledError):
+        await reminder_task
 
 
 app = FastAPI(title="Nomi", version="0.1.0", lifespan=lifespan)
