@@ -258,3 +258,26 @@ class ObjectObservation(Base):
     symbolic_tags: Mapped[list[str] | None] = mapped_column(ArrayType(Text))
     robot_reactions: Mapped[dict | None] = mapped_column(JSONB_TYPE)
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP, default=datetime.utcnow)
+
+
+class Reminder(Base):
+    __tablename__ = "reminders"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    robot_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("robots.id"))  # 空=触发时随机选角色
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    trigger_time: Mapped[datetime] = mapped_column(TIMESTAMP, nullable=False)  # UTC naive
+    repeat: Mapped[str] = mapped_column(Text, default="once")  # 'once' | 'daily'
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_triggered_at: Mapped[datetime | None] = mapped_column(TIMESTAMP)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP, default=datetime.utcnow)
+
+
+class ToolSetting(Base):
+    __tablename__ = "tool_settings"
+
+    tool_name: Mapped[str] = mapped_column(Text, primary_key=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP, default=datetime.utcnow, onupdate=datetime.utcnow
+    )

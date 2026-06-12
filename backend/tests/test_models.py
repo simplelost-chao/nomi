@@ -5,7 +5,9 @@ from app.db.models import (
     Message,
     ObjectObservation,
     Relationship,
+    Reminder,
     Robot,
+    ToolSetting,
     User,
     YearlyMemory,
 )
@@ -25,5 +27,7 @@ def test_all_models_registered():
         "robot_skills",
         "activity_logs",
         "asset_versions",
+        "reminders",
+        "tool_settings",
     }
     assert expected == table_names
