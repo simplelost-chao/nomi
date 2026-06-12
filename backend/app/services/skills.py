@@ -190,7 +190,7 @@ async def _execute_tool_skill(
     from app.services.tools.base import ToolResult
 
     tool = registry.get_tool(skill.tool_name)
-    if not tool:
+    if not tool or not registry.is_enabled(skill.tool_name):
         return None
 
     # 从当前想法中提取工具参数

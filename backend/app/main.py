@@ -55,6 +55,8 @@ async def lifespan(app: FastAPI):
         from app.db.engine import init_db
         await init_db()
         print("[startup] SQLite database initialized.")
+    from app.services.tools.toggles import hydrate_tool_settings
+    await hydrate_tool_settings()
     yield
 
 

@@ -14,7 +14,7 @@ from app.services.tools.base import ToolResult
 
 def _build_router_prompt(user_message: str) -> str:
     tool_lines = []
-    for t in registry.all_tools():
+    for t in registry.enabled_tools():
         params = "；".join(f"{k}（{v}）" for k, v in t.params_schema.items())
         tool_lines.append(f"- {t.name}：{t.description}。参数：{params}")
     tools_str = "\n".join(tool_lines)
@@ -65,7 +65,7 @@ async def route_and_execute(
     if not tool_name or str(tool_name).lower() == "null":
         return None
     tool = registry.get_tool(str(tool_name))
-    if not tool:
+    if not tool or not registry.is_enabled(tool.name):
         return None
 
     params = decision.get("params") or {}

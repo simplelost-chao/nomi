@@ -6,12 +6,13 @@ import shutil
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy import func, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.db.engine import async_session
+from app.db.engine import async_session, get_session
 from app.db.models import AssetVersion, Robot, YearlyMemory
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -561,3 +562,27 @@ async def list_memories(char_id: str):
         }
         for m in memories
     ]
+
+
+@router.get("/tools")
+async def list_tool_settings():
+    """All registered tools with their enabled state."""
+    import app.services.tools  # noqa: F401 — ensure registration
+    from app.services.tools.registry import all_tools, is_enabled
+    return [
+        {"name": t.name, "display_name": t.display_name,
+         "description": t.description, "enabled": is_enabled(t.name)}
+        for t in all_tools()
+    ]
+
+
+@router.put("/tools/{tool_name}")
+async def update_tool_setting(tool_name: str, body: dict, session: AsyncSession = Depends(get_session)):
+    import app.services.tools  # noqa: F401
+    from app.services.tools.registry import get_tool
+    from app.services.tools.toggles import set_tool_enabled
+    if not get_tool(tool_name):
+        raise HTTPException(status_code=404, detail=f"Unknown tool: {tool_name}")
+    enabled = bool(body.get("enabled", True))
+    await set_tool_enabled(session, tool_name, enabled)
+    return {"name": tool_name, "enabled": enabled}
