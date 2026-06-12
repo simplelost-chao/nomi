@@ -134,8 +134,8 @@ async def _route_plan_execute(params: dict) -> ToolResult:
         if not paths:
             return ToolResult(ok=False, error="没规划出路线")
         path = paths[0]
-        distance_km = int(path.get("distance", 0)) / 1000
-        duration_min = int(path.get("duration", 0)) // 60
+        distance_km = int(path.get("distance") or 0) / 1000
+        duration_min = int(path.get("duration") or 0) // 60
         summary = (
             f"从{origin_addr}开车到{dest_addr}约 {distance_km:.1f} 公里，"
             f"预计 {duration_min} 分钟。"

@@ -104,6 +104,7 @@ async def test_food_search_success(monkeypatch):
         assert path == "/place/text"
         assert params["keywords"] == "火锅"
         assert params["city"] == "北京"
+        assert params["types"] == "050000"
         return POI_OK
 
     monkeypatch.setattr(amap, "_amap_get", fake_get)
@@ -151,3 +152,39 @@ async def test_route_plan_geocode_fail(monkeypatch):
         {"origin": "不存在的地方", "destination": "西二旗", "city": "北京"}
     )
     assert result.ok is False
+
+
+@pytest.mark.asyncio
+async def test_route_plan_dest_geocode_fail(monkeypatch):
+    call_count = {"n": 0}
+
+    async def fake_get(path, params):
+        if path == "/geocode/geo":
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                return {"geocodes": [{"location": "116.40,39.90"}]}  # 起点成功
+            return {"geocodes": []}  # 终点失败
+        raise AssertionError(path)
+
+    monkeypatch.setattr(amap, "_amap_get", fake_get)
+    result = await amap.route_plan_tool.execute(
+        {"origin": "国贸", "destination": "不存在的地方", "city": "北京"}
+    )
+    assert result.ok is False
+    assert "不存在的地方" in result.error
+
+
+@pytest.mark.asyncio
+async def test_food_search_no_api_key(monkeypatch):
+    monkeypatch.setattr("app.config.settings.amap_api_key", "")
+    result = await amap.food_search_tool.execute({"keyword": "火锅"})
+    assert result.ok is False
+    assert "Key" in result.error
+
+
+@pytest.mark.asyncio
+async def test_route_plan_no_api_key(monkeypatch):
+    monkeypatch.setattr("app.config.settings.amap_api_key", "")
+    result = await amap.route_plan_tool.execute({"origin": "a", "destination": "b"})
+    assert result.ok is False
+    assert "Key" in result.error
