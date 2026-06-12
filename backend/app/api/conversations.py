@@ -171,9 +171,10 @@ async def send_message(
                     "回答时只能使用上面查到的信息，不要编造任何其他数据。"
                 )
             else:
+                error_msg = tool_result.error or "查询失败"
                 tool_context = (
                     f"\n\n【你尝试用「{tool_display_name}」查询，但失败了："
-                    f"{tool_result.error}】\n如实告诉用户没查到，不要编造数据。"
+                    f"{error_msg}】\n如实告诉用户没查到，不要编造数据。"
                 )
     except asyncio.TimeoutError:
         print("[conversations] Tool routing timed out (30s), proceeding without tools")

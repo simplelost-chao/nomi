@@ -6,6 +6,7 @@
 
 import asyncio
 
+from app.config import settings
 from app.services.llm.base import BaseLLM
 from app.services.tools import registry
 from app.services.tools.base import ToolResult
@@ -31,6 +32,8 @@ def _build_router_prompt(user_message: str) -> str:
    - 非字面用法：「心情涨了不少」「状态跌了」
 3. 参数从用户消息里提取；提取不到的留空字符串
 4. 不确定就不调用（tool 输出 null）
+
+默认城市：{settings.default_city}（用户消息里明说地点时才提取地点，否则城市参数留空字符串）
 
 用户消息：「{user_message}」
 
