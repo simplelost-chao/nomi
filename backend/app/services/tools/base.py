@@ -21,3 +21,4 @@ class Tool:
     params_schema: dict        # 参数名 -> 中文说明（用于生成路由 prompt）
     execute: Callable[[dict], Awaitable["ToolResult"]] = field(compare=False, repr=False)
     timeout: float = 10        # 执行超时秒数（claude CLI 类工具需调大）
+    autonomous: bool = True    # False = 不种子进心跳技能（如提醒类，角色不该自己给自己设）

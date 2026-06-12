@@ -23,6 +23,8 @@ async def seed_tool_skills(session, robot_id) -> int:
 
     added = 0
     for tool in all_tools():
+        if not tool.autonomous:
+            continue  # 提醒类工具只走聊天路由，不进心跳技能
         if tool.name in existing:
             continue
         session.add(RobotSkill(
