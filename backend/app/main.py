@@ -57,7 +57,11 @@ async def lifespan(app: FastAPI):
         print("[startup] SQLite database initialized.")
     from app.services.tools.toggles import hydrate_tool_settings
     await hydrate_tool_settings()
+    import asyncio
+    from app.services.reminders import reminders_loop
+    reminder_task = asyncio.create_task(reminders_loop())
     yield
+    reminder_task.cancel()
 
 
 app = FastAPI(title="Nomi", version="0.1.0", lifespan=lifespan)

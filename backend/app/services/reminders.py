@@ -89,3 +89,100 @@ async def cancel_by_keyword(session: AsyncSession, keyword: str) -> tuple[int, l
         await session.commit()
         return 1, matches
     return 0, matches
+
+
+# ---------- 触发与循环（由 FastAPI lifespan 启动，独立于 heartbeat 睡眠状态） ----------
+
+import asyncio
+import random
+
+REMINDER_CHECK_INTERVAL = 30  # 秒
+
+
+def _make_flash_llm():
+    from app.services.llm.deepseek import DeepSeekLLM
+    return DeepSeekLLM(model="deepseek-v4-flash")
+
+
+async def _heartbeat_emit(event: dict) -> None:
+    from app.services.heartbeat import _emit
+    await _emit(event)
+
+
+async def _heartbeat_save(robot_id, robot_name: str, content: str) -> None:
+    from app.services.heartbeat import _save_heartbeat_message
+    await _save_heartbeat_message(robot_id, robot_name, content)
+
+
+async def _pick_robot(session: AsyncSession):
+    """提醒绑定的角色；未绑定则随机选一个。"""
+    from app.db.models import Robot
+    robots = list((await session.execute(select(Robot))).scalars().all())
+    return random.choice(robots) if robots else None
+
+
+async def fire_reminder(session: AsyncSession, reminder: Reminder, now_utc: datetime) -> None:
+    """到点触发：角色人设化提醒语 → message 事件 + 落库 → 推进/失活。失败也要推进，避免风暴。"""
+    robot = None
+    if reminder.robot_id:
+        from app.db.models import Robot
+        robot = (await session.execute(
+            select(Robot).where(Robot.id == reminder.robot_id))).scalar_one_or_none()
+    if not robot:
+        robot = await _pick_robot(session)
+
+    content = f"叮——提醒时间到：{reminder.title}！"  # 兜底文案
+    robot_name = robot.name if robot else "系统"
+    if robot:
+        try:
+            personality = robot.personality or []
+            if isinstance(personality, dict):
+                personality = list(personality.values())
+            llm = _make_flash_llm()
+            text = await asyncio.wait_for(llm.generate(
+                messages=[{"role": "user", "content":
+                    f"你是 {robot.name}，性格：{', '.join(str(p) for p in personality[:3])}。"
+                    f"主人之前让你到点提醒：「{reminder.title}」。现在到点了，"
+                    f"用你的语气喊主人（1-2句话，必须包含提醒的事情本身）。"}],
+                system_prompt=f"你是 {robot.name}，正在提醒主人一件事。",
+            ), timeout=20)
+            if text and reminder.title.strip() and text.strip():
+                content = text.strip()
+                if reminder.title not in content:
+                    content = f"{content}（提醒：{reminder.title}）"
+        except Exception as e:
+            print(f"[reminders] Persona wrap failed, using fallback: {e}")
+
+    await _heartbeat_emit({
+        "type": "message",
+        "robot_id": str(robot.id) if robot else "",
+        "robot_name": robot_name,
+        "content": content,
+        "target": None,
+    })
+    try:
+        if robot:
+            await _heartbeat_save(robot.id, robot_name, content)
+    except Exception as e:
+        print(f"[reminders] Save message failed: {e}")
+    await advance_after_trigger(session, reminder, now_utc)
+
+
+async def reminders_loop() -> None:
+    """每 REMINDER_CHECK_INTERVAL 秒扫描一次到期提醒。永不退出（除非 cancel）。"""
+    from app.db.engine import async_session
+    print("[reminders] Check loop started.")
+    while True:
+        try:
+            await asyncio.sleep(REMINDER_CHECK_INTERVAL)
+            now = datetime.utcnow()
+            async with async_session() as session:
+                for reminder in await find_due(session, now):
+                    try:
+                        await fire_reminder(session, reminder, now)
+                    except Exception as e:
+                        print(f"[reminders] Fire failed for {reminder.title}: {e}")
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            print(f"[reminders] Loop error: {e}")
