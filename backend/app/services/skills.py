@@ -216,7 +216,7 @@ async def _execute_tool_skill(
         return None
 
     prompt = f"""你是 {robot.name}。你刚用「{skill.name}」查到了真实信息：
-{result.summary}
+{result.summary[:1000]}
 
 当前情境：{context}
 
