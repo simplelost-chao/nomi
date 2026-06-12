@@ -1,3 +1,4 @@
+import asyncio
 import random
 import time
 import uuid
@@ -151,8 +152,36 @@ async def send_message(
         for m in recent_messages
     ]
 
+    # Tool routing: 每条用户消息最多触发一次真实 API 查询，结果共享给所有回复的角色
+    tool_context = ""
+    try:
+        from app.services.tool_router import route_and_execute
+        from app.services.llm.deepseek import DeepSeekLLM
+
+        # 路由用快模型；没配 DeepSeek key 时退回当前聊天模型
+        router_llm = DeepSeekLLM(model="deepseek-v4-flash") if settings.deepseek_api_key else llm
+        # 聊天路径整体上限 30s：高德/行情工具远低于此；新闻（claude CLI）超时则静默降级
+        routed = await asyncio.wait_for(route_and_execute(body.content, router_llm), timeout=30)
+        if routed:
+            tool_display_name, tool_result = routed
+            if tool_result.ok:
+                tool_context = (
+                    f"\n\n【你刚用「{tool_display_name}」查到的真实信息】\n"
+                    f"{tool_result.summary}\n"
+                    "回答时只能使用上面查到的信息，不要编造任何其他数据。"
+                )
+            else:
+                error_msg = tool_result.error or "查询失败"
+                tool_context = (
+                    f"\n\n【你尝试用「{tool_display_name}」查询，但失败了："
+                    f"{error_msg}】\n如实告诉用户没查到，不要编造数据。"
+                )
+    except asyncio.TimeoutError:
+        print("[conversations] Tool routing timed out (30s), proceeding without tools")
+    except Exception as e:
+        print(f"[conversations] Tool routing error: {e}")
+
     # All robots respond in PARALLEL
-    import asyncio
 
     response_messages = [_msg_dict(user_msg)]
 
@@ -200,6 +229,8 @@ async def send_message(
         # Prepend robot's custom system_prompt if set
         if robot.system_prompt:
             system = robot.system_prompt + "\n\n" + system
+        if tool_context:
+            system = system + tool_context
         t0 = time.time()
         content = await llm.generate(
             messages=[{"role": "user", "content": prompt}],

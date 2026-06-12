@@ -241,6 +241,7 @@ class RobotSkill(Base):
     trigger_keywords: Mapped[list[str] | None] = mapped_column(ArrayType(Text))
     execution_prompt: Mapped[str | None] = mapped_column(Text)        # how to execute
     skill_type: Mapped[str | None] = mapped_column(Text)              # creative/knowledge/social/search
+    tool_name: Mapped[str | None] = mapped_column(Text)  # 非空表示这是注册表里的工具技能
     usage_count: Mapped[int] = mapped_column(Integer, default=0)
     acquired_at: Mapped[datetime] = mapped_column(TIMESTAMP, default=datetime.utcnow)
     last_used_at: Mapped[datetime | None] = mapped_column(TIMESTAMP)
