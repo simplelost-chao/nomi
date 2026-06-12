@@ -1,3 +1,4 @@
+import asyncio
 import random
 import time
 import uuid
@@ -159,7 +160,8 @@ async def send_message(
 
         # 路由用快模型；没配 DeepSeek key 时退回当前聊天模型
         router_llm = DeepSeekLLM(model="deepseek-v4-flash") if settings.deepseek_api_key else llm
-        routed = await route_and_execute(body.content, router_llm)
+        # 聊天路径整体上限 30s：高德/行情工具远低于此；新闻（claude CLI）超时则静默降级
+        routed = await asyncio.wait_for(route_and_execute(body.content, router_llm), timeout=30)
         if routed:
             tool_display_name, tool_result = routed
             if tool_result.ok:
@@ -173,11 +175,12 @@ async def send_message(
                     f"\n\n【你尝试用「{tool_display_name}」查询，但失败了："
                     f"{tool_result.error}】\n如实告诉用户没查到，不要编造数据。"
                 )
+    except asyncio.TimeoutError:
+        print("[conversations] Tool routing timed out (30s), proceeding without tools")
     except Exception as e:
         print(f"[conversations] Tool routing error: {e}")
 
     # All robots respond in PARALLEL
-    import asyncio
 
     response_messages = [_msg_dict(user_msg)]
 
@@ -225,9 +228,11 @@ async def send_message(
         # Prepend robot's custom system_prompt if set
         if robot.system_prompt:
             system = robot.system_prompt + "\n\n" + system
+        if tool_context:
+            system = system + tool_context
         t0 = time.time()
         content = await llm.generate(
-            messages=[{"role": "user", "content": prompt + tool_context}],
+            messages=[{"role": "user", "content": prompt}],
             system_prompt=system,
         )
         llm_time_ms = int((time.time() - t0) * 1000)
