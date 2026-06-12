@@ -163,6 +163,7 @@
   <h1>Nomi 角色管理后台</h1>
   <div style="display:flex; align-items:center; gap:12px;">
     <div id="ttsEngineIndicator" style="font-size:12px; color:#888; cursor:pointer;" onclick="showTTSSettings()">TTS: ...</div>
+    <button class="btn btn-secondary" onclick="openToolsModal()">🔧 工具开关</button>
     <span class="badge">Admin Panel</span>
   </div>
 </div>
@@ -306,6 +307,19 @@
         <button class="btn btn-primary" onclick="createFromWeb()">开始构建</button>
         <div id="webLog" class="log" style="display:none; margin-top:12px;"></div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tools Toggle Modal -->
+<div class="modal-overlay" id="toolsModal">
+  <div class="modal" style="max-width:540px">
+    <div class="modal-header">
+      <h2>🔧 工具技能开关</h2>
+      <button class="modal-close" onclick="closeToolsModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="tools-list" style="display:flex;flex-direction:column;gap:10px"></div>
     </div>
   </div>
 </div>
@@ -1082,6 +1096,51 @@ function closeVersionModal() {
   document.getElementById('versionModal').classList.remove('show');
 }
 
+async function openToolsModal() {
+  document.getElementById('toolsModal').classList.add('show');
+  const list = document.getElementById('tools-list');
+  list.innerHTML = '<p class="loading">加载中…</p>';
+  try {
+    const tools = await fetchJSON(API + '/tools');
+    list.innerHTML = '';
+    for (const t of tools) {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#0f0f1a;border:1px solid #2a2a4a;border-radius:8px';
+      row.innerHTML = `<div style="flex:1;min-width:0"><div style="font-size:14px">${t.display_name} <span style="color:#666;font-size:12px">${t.name}</span></div>
+        <div style="color:#888;font-size:12px;margin-top:2px">${t.description}</div></div>
+        <label style="cursor:pointer;flex-shrink:0;margin-left:12px;display:flex;align-items:center;gap:4px">
+          <input type="checkbox" ${t.enabled ? 'checked' : ''} onchange="toggleTool('${t.name}', this.checked, this)"> 启用
+        </label>`;
+      list.appendChild(row);
+    }
+  } catch(e) {
+    list.innerHTML = '<p class="error">加载失败: ' + e.message + '</p>';
+  }
+}
+
+function closeToolsModal() {
+  document.getElementById('toolsModal').classList.remove('show');
+}
+
+async function toggleTool(name, enabled, checkbox) {
+  try {
+    await fetch(API + '/tools/' + name, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({enabled}),
+    });
+  } catch(e) {
+    // revert checkbox on failure and show inline error
+    checkbox.checked = !enabled;
+    const errEl = document.createElement('span');
+    errEl.className = 'error';
+    errEl.style.cssText = 'font-size:11px;margin-left:6px';
+    errEl.textContent = '保存失败';
+    checkbox.parentNode.appendChild(errEl);
+    setTimeout(() => errEl.remove(), 3000);
+  }
+}
+
 // ==================== CREATE CHARACTER ====================
 
 function showCreateModal() {
@@ -1269,6 +1328,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     closeVersionModal();
     closeCreateModal();
+    closeToolsModal();
   }
 });
 </script>
