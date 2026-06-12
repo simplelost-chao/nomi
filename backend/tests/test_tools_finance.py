@@ -69,3 +69,14 @@ async def test_forex_success(monkeypatch):
     result = await finance.forex_tool.execute({"base": "USD", "target": "CNY"})
     assert result.ok is True
     assert "7.1234" in result.summary
+
+
+@pytest.mark.asyncio
+async def test_crypto_partial_response(monkeypatch):
+    async def fake_get_json(url: str, params: dict | None = None) -> dict:
+        return {"bitcoin": {"usd_24h_change": 1.5}}  # usd/cny 缺失
+
+    monkeypatch.setattr(finance, "_get_json", fake_get_json)
+    result = await finance.crypto_tool.execute({"coin": "bitcoin"})
+    assert result.ok is False
+    assert result.error

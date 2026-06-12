@@ -38,7 +38,7 @@ async def _stock_execute(params: dict) -> ToolResult:
         name, open_, prev_close, current = fields[0], fields[1], fields[2], fields[3]
         prev = float(prev_close)
         change = (float(current) - prev) / prev * 100 if prev else 0.0
-        direction = "涨" if change >= 0 else "跌"
+        direction = "涨" if change > 0 else ("跌" if change < 0 else "平")
         summary = (
             f"{name}（{symbol}）现价 {current} 元，今开 {open_}，"
             f"较昨收{direction} {abs(change):.2f}%"
@@ -69,10 +69,14 @@ async def _crypto_execute(params: dict) -> ToolResult:
         if coin not in data:
             return ToolResult(ok=False, error=f"没查到币种「{coin}」")
         q = data[coin]
+        usd = q.get("usd")
+        cny = q.get("cny")
+        if usd is None or cny is None:
+            return ToolResult(ok=False, error=f"币种「{coin}」返回数据不完整")
         change = q.get("usd_24h_change") or 0.0
-        direction = "涨" if change >= 0 else "跌"
+        direction = "涨" if change > 0 else ("跌" if change < 0 else "平")
         summary = (
-            f"{coin} 现价 ${q.get('usd'):,}（约 ¥{q.get('cny'):,}），"
+            f"{coin} 现价 ${usd:,}（约 ¥{cny:,}），"
             f"24小时{direction} {abs(change):.1f}%"
         )
         return ToolResult(ok=True, summary=summary, data=q)
