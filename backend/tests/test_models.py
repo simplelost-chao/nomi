@@ -22,5 +22,8 @@ def test_all_models_registered():
         "conversations",
         "messages",
         "object_observations",
+        "robot_skills",
+        "activity_logs",
+        "asset_versions",
     }
     assert expected == table_names
