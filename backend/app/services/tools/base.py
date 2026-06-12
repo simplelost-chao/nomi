@@ -1,6 +1,6 @@
 """Tool skills — real external-API-backed skills shared by chat and heartbeat paths."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Awaitable, Callable
 
 
@@ -19,5 +19,5 @@ class Tool:
     description: str           # 给路由 LLM 的功能描述
     trigger_hints: list[str]   # 聊天门控关键词；也是心跳技能的 trigger_keywords 种子
     params_schema: dict        # 参数名 -> 中文说明（用于生成路由 prompt）
-    execute: Callable[[dict], Awaitable["ToolResult"]]
+    execute: Callable[[dict], Awaitable["ToolResult"]] = field(compare=False, repr=False)
     timeout: int = 10          # 执行超时秒数（claude CLI 类工具需调大）
