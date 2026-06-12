@@ -1,5 +1,7 @@
 """Skill evolution — robots autonomously discover and execute self-defined skills."""
 
+import asyncio
+import json
 import random
 from datetime import datetime, timezone
 
@@ -128,6 +130,20 @@ async def discover_skill(
     return skill
 
 
+async def _bump_usage(session: AsyncSession | None, skill_id) -> None:
+    """Update usage stats; tolerates session=None (tests / fire-and-forget paths)."""
+    if session is None:
+        return
+    async with session.begin_nested():
+        fresh = (await session.execute(
+            select(RobotSkill).where(RobotSkill.id == skill_id)
+        )).scalar_one_or_none()
+        if fresh:
+            fresh.usage_count = (fresh.usage_count or 0) + 1
+            fresh.last_used_at = datetime.utcnow()
+    await session.commit()
+
+
 async def execute_skill(
     robot: Robot,
     skill: RobotSkill,
@@ -136,6 +152,10 @@ async def execute_skill(
     session: AsyncSession,
 ) -> str | None:
     """Execute a skill given the current context. Returns the output or None."""
+    # 工具技能：先取真实数据，再用人设语气包装
+    if getattr(skill, "tool_name", None):
+        return await _execute_tool_skill(robot, skill, context, llm, session)
+
     prompt = f"""你是 {robot.name}。此刻你在用「{skill.name}」这项技能。
 
 关于这项技能：{skill.description or ''}
@@ -150,20 +170,66 @@ async def execute_skill(
             messages=[{"role": "user", "content": prompt}],
             system_prompt=f"你是 {robot.name}，正在自然地展示一项技能。",
         )
-
-        # Update usage stats
-        async with session.begin_nested():
-            fresh = (await session.execute(
-                select(RobotSkill).where(RobotSkill.id == skill.id)
-            )).scalar_one_or_none()
-            if fresh:
-                fresh.usage_count = (fresh.usage_count or 0) + 1
-                fresh.last_used_at = datetime.utcnow()
-        await session.commit()
-
+        await _bump_usage(session, skill.id)
         return result.strip() if result else None
     except Exception as e:
         print(f"[skills] Execute failed for {skill.name}: {e}")
+        return None
+
+
+async def _execute_tool_skill(
+    robot: Robot,
+    skill: RobotSkill,
+    context: str,
+    llm: BaseLLM,
+    session: AsyncSession,
+) -> str | None:
+    """Tool-backed skill: fetch real data from the registry, wrap in the robot's voice.
+    心跳场景里任何失败都静默返回 None——绝不让角色编造数据。"""
+    from app.services.tools import registry
+    from app.services.tools.base import ToolResult
+
+    tool = registry.get_tool(skill.tool_name)
+    if not tool:
+        return None
+
+    # 从当前想法中提取工具参数
+    try:
+        params = await llm.generate_structured(
+            messages=[{"role": "user", "content": f"""从下面这段想法中提取调用「{tool.display_name}」需要的参数。
+参数说明：{json.dumps(tool.params_schema, ensure_ascii=False)}
+想法：「{context}」
+提取不到的参数留空字符串。只输出 JSON 对象。"""}],
+            system_prompt="提取工具参数，只输出 JSON。",
+        )
+        if not isinstance(params, dict):
+            params = {}
+    except Exception:
+        params = {}
+
+    try:
+        result = await asyncio.wait_for(tool.execute(params or {}), timeout=tool.timeout)
+    except Exception as e:
+        result = ToolResult(ok=False, error=str(e))
+    if not result.ok:
+        print(f"[skills] Tool {skill.tool_name} failed: {result.error}")
+        return None
+
+    prompt = f"""你是 {robot.name}。你刚用「{skill.name}」查到了真实信息：
+{result.summary}
+
+当前情境：{context}
+
+用你的语气，把里面有意思的部分自然地分享出来（2-3句话）。只能用上面查到的信息，不要编造。"""
+    try:
+        output = await llm.generate(
+            messages=[{"role": "user", "content": prompt}],
+            system_prompt=f"你是 {robot.name}，正在分享你刚查到的真实信息。",
+        )
+        await _bump_usage(session, skill.id)
+        return output.strip() if output else None
+    except Exception as e:
+        print(f"[skills] Tool skill voice-wrap failed: {e}")
         return None
 
 
