@@ -24,7 +24,11 @@ def _build_router_prompt(user_message: str) -> str:
 
 判断规则：
 1. 只有用户在【请求真实信息】时才调用工具（如"附近有什么好吃的"、"明天天气怎么样"）
-2. 情绪表达、闲聊、回忆【不】调用工具（"我好想吃火锅啊"是抒情不是查询）
+2. 情绪表达、闲聊、回忆【不】调用工具：
+   - 情绪/感叹：「我好想吃火锅啊」「好久没吃烧烤了」「好撑啊」
+   - 向我提问：「你喜欢吃什么？」「你知道什么好吃的吗？」
+   - 过去回忆：「我们上次吃火锅真开心」
+   - 非字面用法：「心情涨了不少」「状态跌了」
 3. 参数从用户消息里提取；提取不到的留空字符串
 4. 不确定就不调用（tool 输出 null）
 
@@ -51,7 +55,7 @@ async def route_and_execute(
             temperature=0.1,
         )
     except Exception as e:
-        print(f"[tool_router] Router LLM failed: {e}")
+        print(f"[tool_router] Router LLM failed ({type(e).__name__}): {e}")
         return None
 
     tool_name = decision.get("tool") if isinstance(decision, dict) else None

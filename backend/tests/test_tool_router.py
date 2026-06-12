@@ -96,7 +96,7 @@ async def test_tool_timeout_returns_failed_result():
         return ToolResult(ok=True, summary="too late")
 
     registry._TOOLS["weather"].execute = slow_exec
-    registry._TOOLS["weather"].timeout = 0  # 立即超时
+    registry._TOOLS["weather"].timeout = 0.01  # 远小于 slow_exec 的 5s，稳定超时
     llm = FakeLLM(structured={"tool": "weather", "params": {}})
     routed = await tool_router.route_and_execute("天气怎么样", llm)
     assert routed is not None
