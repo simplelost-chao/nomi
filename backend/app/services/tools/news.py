@@ -24,6 +24,7 @@ async def _run_claude_search(prompt: str) -> dict | None:
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=90)
     except asyncio.TimeoutError:
         proc.kill()
+        await proc.wait()  # 回收进程，避免僵尸
         return None
     if proc.returncode != 0:
         print(f"[tools.news] Claude CLI failed: {stderr.decode()[:200]}")
